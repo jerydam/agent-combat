@@ -10,7 +10,8 @@ import { PERSONALITY_NAMES } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Settings, RotateCcw, X, Swords, Shield } from 'lucide-react';
+import { Settings, X, Swords, Shield } from 'lucide-react';
+import { useLandscapeGameMode } from '@/lib/game-mode';
 
 interface FloatingNum { id: number; slot: 0 | 1; text: string; cls: string }
 
@@ -26,6 +27,7 @@ export function CombatView() {
   const [flash, setFlash] = useState<0 | 1 | null>(null);
   const [botPersonality, setBotPersonality] = useState(1);
   const [difficulty, setDifficulty] = useState(55);
+  const { containerStyle, activate } = useLandscapeGameMode();
   const wsRef = useRef<WebSocket | null>(null);
   const holdStart = useRef<number>(0);
   const floatId = useRef(0);
@@ -76,6 +78,7 @@ export function CombatView() {
   }, [vol, settings, addFloat]);
 
   const connect = useCallback(() => {
+    activate(); // user gesture: fullscreen + landscape lock (or CSS rotate)
     setPhase('connecting');
     setResult(null);
     setState(null);
@@ -90,7 +93,7 @@ export function CombatView() {
     };
     ws.onerror = () => setPhase('setup');
     ws.onclose = () => { if (phase !== 'result') setPhase((p) => (p === 'result' ? p : 'setup')); };
-  }, [botPersonality, difficulty, vol, handleEvents, phase]);
+  }, [botPersonality, difficulty, vol, handleEvents, phase, activate]);
 
   useEffect(() => () => wsRef.current?.close(), []);
 
@@ -112,18 +115,10 @@ export function CombatView() {
 
   // ------------------------------------------------------------- render
   return (
-    <div className={cn('fixed inset-0 z-50 select-none overflow-hidden bg-background', shake && 'animate-[shake_0.18s]')}
-      style={{ touchAction: 'none' }}>
+    <div className={cn('z-50 select-none overflow-hidden bg-background', shake && 'animate-[shake_0.18s]')}
+      style={{ ...containerStyle, touchAction: 'none' }}>
       <style>{`@keyframes shake{25%{transform:translate(-6px,2px)}50%{transform:translate(5px,-3px)}75%{transform:translate(-3px,1px)}}
-        @keyframes floatUp{to{transform:translateY(-48px);opacity:0}}
-        @media (orientation: portrait) { .rotate-hint { display: flex; } }
-        @media (orientation: landscape) { .rotate-hint { display: none; } }`}</style>
-
-      {/* rotate prompt */}
-      <div className="rotate-hint absolute inset-0 z-40 hidden flex-col items-center justify-center gap-3 bg-background/95 text-center">
-        <RotateCcw className="h-10 w-10 animate-spin text-primary" style={{ animationDuration: '3s' }} />
-        <p className="font-display text-lg">Rotate to landscape to fight</p>
-      </div>
+        @keyframes floatUp{to{transform:translateY(-48px);opacity:0}}`}</style>
 
       {/* HUD: life + stamina */}
       {state && (

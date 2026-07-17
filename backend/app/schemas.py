@@ -31,6 +31,7 @@ class AgentOut(BaseModel):
     wins: int
     losses: int
     ranking_points: int
+    skin: str = ""
 
 
 class BattleOut(BaseModel):

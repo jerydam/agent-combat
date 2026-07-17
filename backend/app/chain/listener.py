@@ -29,8 +29,8 @@ from ..engine.league import (compute_standings, generate_fixtures,
                              standings_hash)
 from ..engine.simulator import simulate
 from ..engine.tournament import bracket_hash, run_tournament
-from ..models import (AgentCache, Battle, Fixture, LeagueRecord,
-                      SoloGame, TournamentRecord)
+from ..models import (AgentCache, Battle, Fixture, InventoryItem,
+                      LeagueRecord, SoloGame, TournamentRecord)
 from .client import get_contracts, get_w3
 from .signer import moves_hash
 
@@ -357,7 +357,7 @@ async def run_listener() -> None:
         return
 
     w3 = get_w3()
-    nft, arena, tournament, league, solo = get_contracts(w3)
+    nft, arena, tournament, league, solo, shop = get_contracts(w3)
     last_block = w3.eth.block_number
 
     log.info("Listener started at block %s", last_block)
@@ -407,6 +407,20 @@ async def run_listener() -> None:
                             ev["args"]["seed"],
                         )
                     await finalize_ended_leagues(w3, league)
+
+                if shop is not None:
+                    for ev in shop.events.ItemPurchased().get_logs(
+                        from_block=frm, to_block=to
+                    ):
+                        async with SessionLocal() as db:
+                            db.add(InventoryItem(
+                                wallet=ev["args"]["buyer"].lower(),
+                                item_id=ev["args"]["itemId"],
+                                source="bot",
+                            ))
+                            await db.commit()
+                        log.info("Shop purchase granted: %s -> %s",
+                                 ev["args"]["itemId"], ev["args"]["buyer"])
 
                 if tournament is not None:
                     for ev in tournament.events.TournamentStarted().get_logs(

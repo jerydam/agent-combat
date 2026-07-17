@@ -66,6 +66,7 @@ class Combatant:
     """In-match state, initialized from on-chain stats."""
 
     stats: ChainStats
+    mods: dict = field(default_factory=dict)  # equipped power modifiers
     max_hp: int = 0
     hp: int = 0
     stamina: float = TUNING["stamina_max"]
@@ -139,8 +140,18 @@ class Combatant:
 class CombatMatch:
     """One fight. tick() is the only mutator besides the two inputs."""
 
-    def __init__(self, a: ChainStats, b: ChainStats, seed: int | None = None):
-        self.f: list[Combatant] = [Combatant(a), Combatant(b)]
+    def __init__(
+        self,
+        a: ChainStats,
+        b: ChainStats,
+        seed: int | None = None,
+        mods_a: dict | None = None,
+        mods_b: dict | None = None,
+    ):
+        self.f: list[Combatant] = [
+            Combatant(a, mods_a or {}),
+            Combatant(b, mods_b or {}),
+        ]
         self.t: float = 0.0
         self.over: bool = False
         self.winner: int | None = None
@@ -202,7 +213,7 @@ class CombatMatch:
                 TUNING["second_wind_regen"]
                 if f.stamina < TUNING["second_wind_at"]
                 else TUNING["regen_per_sec"]
-            )
+            ) * f.mods.get("regen_mult", 1.0)
             if not f.is_exhausted(now):
                 f.stamina = min(
                     TUNING["stamina_max"], f.stamina + regen * dt_ms / 1000
@@ -268,7 +279,8 @@ class CombatMatch:
 
         block_open = now <= dfd.block_window_until and dfd.block_opened_at >= 0
         opened_ago = now - dfd.block_opened_at
-        is_parry = block_open and opened_ago <= TUNING["parry_window_ms"]
+        parry_window = TUNING["parry_window_ms"] + dfd.mods.get("parry_bonus_ms", 0)
+        is_parry = block_open and opened_ago <= parry_window
         if block_open and not is_parry and dfd.has_quantum and self.rng.random() < 0.10:
             is_parry = True
 
@@ -290,9 +302,10 @@ class CombatMatch:
                 TUNING["heavy_vs_block_reduction"]
                 if kind == "heavy"
                 else min(
-                    0.85,
+                    0.9,
                     TUNING["block_reduction"]
-                    + dfd.stats.defense * TUNING["block_reduction_per_def"],
+                    + dfd.stats.defense * TUNING["block_reduction_per_def"]
+                    + dfd.mods.get("block_bonus", 0.0),
                 )
             )
             taken = max(1, round(dmg * (1 - reduction)))

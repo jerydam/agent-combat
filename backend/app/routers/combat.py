@@ -17,7 +17,8 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..database import SessionLocal
 from ..engine.agent_engine import FighterState as ChainStats, Personality
-from ..models import AgentCache
+from ..market.catalog import ITEM_BY_ID
+from ..models import AgentCache, AgentLoadout
 from ..combat.rooms import manager
 
 router = APIRouter(tags=["combat"])
@@ -74,9 +75,16 @@ async def practice(ws: WebSocket):
             2,
         )
 
+    mods_a: dict = {}
+    if q.get("agent_id"):
+        async with SessionLocal() as db:
+            l = await db.get(AgentLoadout, int(q["agent_id"]))
+        if l and l.power and (item := ITEM_BY_ID.get(l.power)) and item.power:
+            mods_a = dict(item.power)
+
     room = manager.create(
         room_id=f"practice-{uuid.uuid4().hex[:8]}",
-        a=me, b=bot, bot_slots=[1],
+        a=me, b=bot, bot_slots=[1], mods_a=mods_a,
     )
     await manager.join(room, 0, ws)
 

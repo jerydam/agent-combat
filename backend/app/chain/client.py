@@ -223,6 +223,21 @@ SOLO_ABI = [
 ]
 
 
+SHOP_ABI = [
+    {
+        "name": "ItemPurchased",
+        "type": "event",
+        "anonymous": False,
+        "inputs": [
+            {"name": "buyer", "type": "address", "indexed": True},
+            {"name": "itemId", "type": "string", "indexed": False},
+            {"name": "agentId", "type": "uint256", "indexed": True},
+            {"name": "paid", "type": "uint128", "indexed": False},
+        ],
+    },
+]
+
+
 def get_w3() -> Web3:
     return Web3(Web3.HTTPProvider(get_settings().rpc_url))
 
@@ -253,4 +268,9 @@ def get_contracts(w3: Web3):
         solo = w3.eth.contract(
             address=Web3.to_checksum_address(s.solo_arena_address), abi=SOLO_ABI
         )
-    return nft, arena, tournament, league, solo
+    shop = None
+    if s.shop_address:
+        shop = w3.eth.contract(
+            address=Web3.to_checksum_address(s.shop_address), abi=SHOP_ABI
+        )
+    return nft, arena, tournament, league, solo, shop

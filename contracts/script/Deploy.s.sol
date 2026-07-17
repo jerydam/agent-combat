@@ -8,6 +8,7 @@ import {SoloArena} from "../contracts/SoloArena.sol";
 import {League} from "../contracts/League.sol";
 import {Tournament} from "../contracts/Tournament.sol";
 import {Marketplace} from "../contracts/Marketplace.sol";
+import {Shop} from "../contracts/Shop.sol";
 
 /// forge script script/Deploy.s.sol --rpc-url botchain_testnet --broadcast
 contract Deploy is Script {
@@ -27,10 +28,12 @@ contract Deploy is Script {
         League league = new League(address(nft), gameServer);
         Tournament tournament = new Tournament(address(nft), gameServer);
         Marketplace market = new Marketplace(address(nft));
+        Shop shop = new Shop();
 
-        // Only battle-recording contracts need arena rights
+        // Battle-recording contracts + the game server (for market boosts)
         nft.setArena(address(arena), true);
         nft.setArena(address(solo), true);
+        nft.setArena(gameServer, true);
 
         vm.stopBroadcast();
 
@@ -40,5 +43,6 @@ contract Deploy is Script {
         console.log("LEAGUE_ADDRESS=%s", address(league));
         console.log("TOURNAMENT_ADDRESS=%s", address(tournament));
         console.log("MARKETPLACE_ADDRESS=%s", address(market));
+        console.log("SHOP_ADDRESS=%s", address(shop));
     }
 }

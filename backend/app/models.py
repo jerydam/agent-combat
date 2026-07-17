@@ -131,6 +131,42 @@ class SoloGame(Base):
     )
 
 
+class PlayerProgress(Base):
+    """Wallet-level achievement points and claim tracking."""
+
+    __tablename__ = "player_progress"
+
+    wallet: Mapped[str] = mapped_column(String(42), primary_key=True)
+    points: Mapped[int] = mapped_column(Integer, default=0)
+    claimed: Mapped[list] = mapped_column(JSON, default=list)  # achievement ids
+
+
+class InventoryItem(Base):
+    """Items a wallet owns (from redemption or BOT purchase)."""
+
+    __tablename__ = "inventory"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    wallet: Mapped[str] = mapped_column(String(42), index=True)
+    item_id: Mapped[str] = mapped_column(String(32))
+    source: Mapped[str] = mapped_column(String(12), default="points")  # points|bot
+    consumed: Mapped[bool] = mapped_column(default=False)  # boosts consume
+    tx_hash: Mapped[str] = mapped_column(String(66), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class AgentLoadout(Base):
+    """Cosmetic + perk loadout per agent (off-chain)."""
+
+    __tablename__ = "agent_loadouts"
+
+    token_id: Mapped[int] = mapped_column(primary_key=True)
+    skin: Mapped[str] = mapped_column(String(32), default="")   # item id
+    power: Mapped[str] = mapped_column(String(32), default="")  # item id
+
+
 class Battle(Base):
     """Full battle record. `moves` is the complete round-by-round log whose
     keccak hash is committed on-chain as movesHash (auditable replay)."""

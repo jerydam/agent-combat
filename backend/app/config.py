@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     tournament_address: str = ""
     league_address: str = ""
     solo_arena_address: str = ""
+    shop_address: str = ""
     bot_owner_address: str = ""  # wallet that owns house bot agents
 
     # Backend game-signer key (NEVER the deployer key)

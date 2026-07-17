@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useWallet, shortAddr } from '@/lib/wallet';
 import { Button } from '@/components/ui/button';
-import { Zap, Swords, Trophy, Home, Plus, Dumbbell, LogOut, Wallet, Bot, Users, Medal, Flame } from 'lucide-react';
+import { Zap, Swords, Trophy, Home, Plus, Dumbbell, LogOut, Wallet, Bot, Users, Medal, Flame, Award, ShoppingBag } from 'lucide-react';
 import { Toaster } from 'sonner';
 
 const NAV_ITEMS: { href: string; label: string; icon: React.ElementType }[] = [
@@ -18,6 +18,8 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ElementType }[] = [
   { href: '/solo', label: 'Solo', icon: Bot },
   { href: '/leagues', label: 'Leagues', icon: Users },
   { href: '/tournaments', label: 'Tournaments', icon: Medal },
+  { href: '/achievements', label: 'Achievements', icon: Award },
+  { href: '/market', label: 'Market', icon: ShoppingBag },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
 ];
 
@@ -29,6 +31,12 @@ function isActive(pathname: string, href: string): boolean {
 export function NavShell({ children }: { children: React.ReactNode }) {
   const { connected, address, connect, connecting, disconnect } = useWallet();
   const pathname = usePathname();
+
+  // Game screens are fully immersive: no header, no bottom nav, no padding.
+  const GAME_SCREENS = ['/combat'];
+  if (GAME_SCREENS.some((p) => pathname?.startsWith(p))) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="relative min-h-screen bg-background bg-arena">

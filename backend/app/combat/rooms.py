@@ -53,8 +53,10 @@ class RoomManager:
         bot_slots: list[int],
         seed: int | None = None,
         on_finish=None,
+        mods_a: dict | None = None,
+        mods_b: dict | None = None,
     ) -> Room:
-        match = CombatMatch(a, b, seed=seed)
+        match = CombatMatch(a, b, seed=seed, mods_a=mods_a, mods_b=mods_b)
         room = Room(room_id=room_id, match=match, on_finish=on_finish)
         for slot in bot_slots:
             room.bots.append(BotController(match, slot, seed=seed))

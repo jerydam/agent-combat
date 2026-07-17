@@ -1,185 +1,272 @@
-# Agent Arena — Full Build
+# äGENT çOMBAT (Agent Combat)
 
-AI-powered onchain battle game on **BOT Chain** (EVM, chainId 677, ~0.9s
-finality). Players mint autonomous NFT agents that battle, evolve, enter
-tournaments with on-chain prize pools, wager BOT in duels, and trade on a
-marketplace.
+**A real-time, skill-based onchain fighting game on BOT Chain.**
 
-```
-agent-arena/
-├── contracts/           Solidity (Hardhat, OZ v5)
-│   ├── AgentNFT.sol     agents: on-chain stats, XP, levels, EVOLUTION TIERS
-│   ├── BattleArena.sol  challenge/accept + BOT wagers + quick-match opt-in
-│   ├── Tournament.sol   entry fees pool on-chain, signed podium, 50/30/20
-│   └── Marketplace.sol  fixed-price agent trading, 2.5% fee
-└── backend/             FastAPI: API, AI engine, chain listener, signer
-frontend/                ← yours (integration guide below)
-```
+Players mint AI-powered fighter NFTs called Agents, then battle in real
+time — landscape mobile, two thumbs, ATTACK and DEFEND — with wins,
+losses, XP, evolution, and prize money all settled on-chain. When you're
+not around, your Agent fights for itself: its on-chain personality drives
+an autonomous AI that defends your league fixtures, staffs the practice
+arena, and takes over if you disconnect mid-match.
+
+Live gameplay is server-authoritative (clients only send taps, so
+modified clients and autoclickers gain nothing), every battle log is
+hashed and committed on-chain for public audit, and the whole economy —
+wagers, tournament pools, league prizes, the item shop — runs in BOT, the
+native gas token.
+
+---
 
 ## Gameplay
 
-**Stats** (rolled on-chain at mint, 40–90 + personality bonus): attack
-scales damage, defense mitigates (diminishing returns), speed decides
-strike order, intelligence drives crits and opponent reads.
-`max_hp = 100 + level*10 + defense/2`.
+### The fight
 
-**Moves** — both agents pick simultaneously each round:
+Rotate your phone (the game auto-rotates and goes fullscreen), two
+buttons appear:
 
-| Move         | Energy | Dmg | Acc | Notes                                  |
-|--------------|--------|-----|-----|----------------------------------------|
-| Strike       | 10     | 12  | 95% | bread and butter                       |
-| Power Strike | 30     | 26  | 80% | payoff move                            |
-| Guard        | 0      | —   | —   | halve incoming, +20 energy             |
-| Analyze      | 5      | —   | —   | +focus (max 3): +15% dmg / +8% acc, fades 1 per hit |
-| Finisher     | 45     | 40  | 70% | only when opponent < 35% HP            |
+- **ATTACK** — tap for a *light* strike, hold ≥350ms for a *heavy* one
+  (slower wind-up, +80% damage, punches through sloppy blocks).
+- **DEFEND** — opens a **400ms block window**. Block a hit: ~75–85%
+  damage reduction. Open your block within **150ms before impact**:
+  **PERFECT PARRY** — zero damage, the attacker staggers for half a
+  second, and (with the right evolution) you counter automatically.
 
-Energy +10/round, max 25 rounds, tiebreak HP% → speed.
+Under the thumbs sits a stamina economy: every action costs stamina,
+regen is slow, and hitting zero means **2 seconds exhausted** — no
+attacks, half-size block windows, +25% damage taken. Attacks also have
+wind-ups and cooldowns scaled by your SPEED stat, capping everyone
+around ~1.5 swings/second.
 
-**Personalities:** Aggressive (tempo, greedy finishers), Defensive
-(guards, regens, outlasts), Tactical (stacks focus early, reads the
-opponent via intelligence). Balance at equal stats: 40/33/28 win share.
+That combination is the anti-cheat: **button-mashing is not a strategy,
+it's a loss.** Our test suite literally runs an autoclicker (both buttons,
+every tick) against a mid-level bot — it loses 100% of matches. Optimal
+play is rhythm, reading the opponent's wind-up bar, and timing parries.
 
-**Evolution** (on-chain, in `recordBattle`): 25 wins → Tier 2
-*Advanced*, 60 wins → Tier 3 *Elite*, each +5 intelligence. Tiers unlock
-engine abilities:
-- Tier 2: **Predictive Attack** (sharper reads) and **Counter Attack**
-  (reflect 30% of damage blocked while guarding)
-- Tier 3: + **Quantum Defense** (10% chance to fully negate a hit while
-  guarding)
+A match ends by KO or, at the 90-second bell, by score:
+`damage dealt + 8×successful defends + 20×perfect parries`.
 
-Measured: tier-3 beats an identical tier-1 agent ~59% of the time — an
-edge, not an auto-win.
+### Your Agent
 
-**Agent memory:** before each battle the backend loads the head-to-head
-record between the two agents and feeds it to the policies — agents that
-keep losing to an opponent fight more carefully, and familiarity improves
-reads. Memory inputs are embedded in the battle log, so replays stay
-byte-reproducible.
+Each Agent is an ERC-721 with fully on-chain stats, rolled at mint
+(40–90 each + a personality bonus):
 
-## Real-time combat (Agent Combat)
+| Stat | Effect in combat |
+|---|---|
+| ATTACK | damage per hit |
+| DEFENSE | damage mitigation, block strength, max HP |
+| SPEED | faster wind-ups and cooldowns |
+| INTELLIGENCE | crit chance, stamina efficiency, AI reaction speed |
 
-Battles are now played, not watched: landscape mobile, DEFEND and ATTACK
-buttons (tap = light, hold = heavy), timed block windows with perfect
-parries, stamina, and Mortal-Kombat-style life bars. The server owns
-every rule — `backend/app/combat/engine.py` runs an authoritative 20Hz
-tick loop over WebSocket; clients only send taps, so modified clients and
-autoclickers gain nothing (verified in tests: a both-buttons masher loses
-100% of matches vs a mid bot). Bot opponents run the same personality
-engine in real time (`bot_ai.py`), tier abilities apply (parry-counter,
-earlier telegraphs, quantum blocks), and the full timestamped input trace
-backs `movesHash`. Try it: run the backend, `npm run dev`, open
-`/combat` — works with zero chain setup. Tune the feel in
-`TUNING` (engine.py).
+**Personality** (permanent, chosen at mint) shapes how the Agent fights
+when its AI is in control: **Aggressive** pressures relentlessly,
+**Defensive** blocks, regens, and punishes, **Tactical** learns the
+opponent's rhythm and strikes between swings.
 
-## Game modes (all free or paid)
+**Evolution** happens on-chain in `recordBattle`: 25 wins → **Tier 2
+Advanced** (unlocks *Counter Attack* — parries reflect 30% damage — and
+*Predictive Attack* — you see wind-ups 100ms earlier), 60 wins → **Tier 3
+Elite** (adds *Quantum Defense* — 10% of normal blocks upgrade to
+perfect). Each evolution also grants +5 INT.
 
-1. **Challenge** — `challenge(myAgent, target)` with optional BOT stake
-   (`msg.value`). Opponent `accept(battleId)` matches the stake; the seed
-   is fixed at accept, after both sides committed. Winner takes the pot
-   minus 2.5% fee. Unaccepted challenges refundable anytime by the
-   challenger, or sweepable by anyone after 24h.
-2. **Quick match** — zero stakes, instant, vs agents whose owners opted
-   in via `setQuickMatch(agentId, true)`. No consent griefing.
-3. **Solo (player vs bot)** — house bots are real on-chain agents (they
-   gain XP and evolve too, so difficulty grows naturally). Free play:
-   `SoloArena.play(agent, bot)` with 0 value. Staked: send BOT with the
-   call — beat the bot and win **1.8x your stake** from the house vault.
-   The vault reserves liability at play time, so a win can never be
-   unpayable; unresolved games refundable after 1h. Owner ops: mint bots
-   from the bot wallet, `setBot(id, true)`, `fundVault()`.
-4. **Leagues (async)** — anyone creates a room: entry fee (0 = free),
-   max players, **start/end date-times**, and an optional **join code**
-   (room stores `keccak256(code)`; players join with the code before the
-   start time). After start, anyone calls `activate()` — 3+ players —
-   fixing the league seed. Double round-robin: every player *initiates*
-   one fixture against every other player. You play YOUR fixtures
-   whenever you're online inside the window — the opponent's agent
-   fights autonomously, so they don't need to be there; they play the
-   reverse fixture on their own time. Points: **win 3 · loss 1 ·
-   unplayed-by-deadline 0 (forfeit)**. Standings tiebreak: HP%
-   differential → wins → token id. After the end time the backend
-   forfeits unplayed fixtures, computes the table, and submits signed
-   standings — prizes 50/30/20 of the pool. Dead rooms (<3 players) and
-   stuck leagues are fully refundable.
-5. **Tournaments** — owner creates (entry fee, max entrants, deadline);
-   players `enter(tid, agentId)` paying the fee into the on-chain pool;
-   anyone calls `start(tid)` after the deadline (4+ entrants), fixing the
-   bracket seed. Backend derives the bracket + every match seed
-   deterministically, simulates all rounds, submits the signed podium.
-   Prizes 50/30/20 of the post-fee pool; cancelled tournaments are fully
-   refundable per entrant.
+Agents also carry **memory**: before AI-driven fights, the backend loads
+the head-to-head record between the two agents — an Agent that keeps
+losing to someone fights more carefully next time.
 
-## Trust model
+### Game modes (every mode free or paid)
 
-1. Seeds are fixed **on-chain** (prevrandao) before the backend sees them
-   — at accept/quickMatch for duels, at start for tournaments.
-2. The simulator is a **pure function** of (seed, on-chain stats, logged
-   memory inputs). Byte-identical replays, verified in tests.
-3. Full logs are hashed (keccak of canonical JSON) into `movesHash` /
-   `bracketHash`, signed via **EIP-712**, committed on-chain. Anyone can
-   pull `GET /battles/{id}` or `GET /tournaments/{id}`, re-run the
-   open-source engine, and verify.
-4. Liveness: `cancelStaleBattle` (1h) refunds stakes and frees agents;
-   stuck tournaments cancellable after 48h with per-entrant refunds.
+- **1v1 duels** — quick-match instantly against opted-in agents (zero
+  stakes), or post a **challenge with a BOT wager**; your opponent
+  accepts by matching the stake and the winner takes the pot (2.5% fee).
+- **Solo vs the house** — fight house bots (real on-chain agents that
+  gain XP and evolve, so difficulty rises over time). Free, or stake BOT
+  to win **1.8×** from the house vault, which reserves your potential
+  payout at play time so wins are always payable.
+- **Leagues (async)** — anyone creates a room: entry fee, max players,
+  **start/end date-times**, and an optional **join code**. Double
+  round-robin where every player *initiates* one fixture against every
+  other player — play YOUR fixtures whenever you're online; the
+  opponent's Agent fights autonomously, so they never need to be there.
+  Win 3 pts, loss 1 (you showed up), unplayed-by-deadline 0. Final
+  standings pay **50/30/20** of the pool.
+- **Tournaments** — single-elimination brackets with an on-chain prize
+  pool and the same 50/30/20 podium split; the whole bracket derives
+  deterministically from an on-chain seed and is publicly replayable.
+- **Training** — free sparring, no gas, no records.
 
-Honest caveat: a malicious signer key could sign a fake result — it
-can't forge the *log* (audits would catch it publicly), but it moves the
-money once. Keep the signer key isolated on Koyeb, rotate via
-`setGameSigner`, and treat "fully on-chain damage math" as the endgame
-hardening step for high-stakes play.
+### Achievements & Market
 
-## Runbook
+Playing earns **achievement points** (14 achievements, from *First
+Blood* to *Apex* at 1300 ELO). Spend points — or pay BOT via the Shop
+contract — on:
 
-**Contracts:**
-```bash
-cd contracts && npm install
-cp .env.example .env   # PRIVATE_KEY, RPC, GAME_SIGNER_ADDRESS
-npx hardhat run script/deploy.ts --network botchainTestnet
+- **Avatar skins** — human-form fighter portraits (10 ship built-in;
+  drop any image into `frontend/public/avatars/` + one line in
+  `lib/avatars.ts` to add your own).
+- **Stat serums** — consume into a **permanent on-chain stat boost**
+  (`AgentNFT.boostStats`, sent by the game server, capped per call).
+- **Powers** — equippable combat perks the engine applies live:
+  *Second Wind* (+20% stamina regen), *Iron Guard* (stronger blocks),
+  *Focus Core* (+40ms parry window).
+
+There's also a peer-to-peer **Marketplace** contract for trading Agents
+themselves at fixed prices.
+
+### Trust model
+
+- Seeds for AI-simulated battles are fixed **on-chain** (prevrandao)
+  before the backend ever sees them; the simulator is a pure function of
+  (seed, stats, logged memory) — replays are byte-identical.
+- Live matches are input-driven, so instead of seed-determinism every
+  result commits a **keccak hash of the full battle log** (`movesHash` /
+  `bracketHash` / `standingsHash`) on-chain — anyone can pull the log
+  from the API and audit it tap-by-tap.
+- Results are settled only by the **game server account**
+  (`msg.sender == gameServer`); timeouts refund stakes and free agents
+  if the server ever goes down. League fixture plays and all market
+  actions require an **EIP-191 wallet signature** from the owner.
+
+---
+
+## Tech stack
+
+| Layer | Tech |
+|---|---|
+| Chain | **BOT Chain** (EVM, chainId 677, PoSA, ~0.9s finality, gas = BOT) |
+| Contracts | Solidity 0.8.28, OpenZeppelin v5, **Foundry** (Hardhat config included) |
+| Backend | **Python 3.12 / FastAPI**, SQLAlchemy 2 async, web3.py, WebSockets |
+| Realtime | Server-authoritative combat engine, 20Hz asyncio tick loop |
+| Database | PostgreSQL (**Supabase**) in prod, SQLite locally |
+| Frontend | **Next.js 13 (app router) / TypeScript**, Tailwind + shadcn/ui, **viem** |
+| Wallet | Any injected wallet (MetaMask); auto-adds/switches to BOT Chain |
+| Hosting | Backend on **Koyeb** (Docker), frontend on Vercel/Netlify |
+
+### Repository layout
+
 ```
-Deploys AgentNFT, BattleArena, Tournament, Marketplace and authorizes the
-arena. Testnet RPC/chainId: dev-docs.botchain.ai · faucet:
-faucet.botchain.ai/basic. Fund the game signer with BOT (it pays gas for
-submitResult / submitPodium).
-
-**Backend:**
-```bash
-cd backend && pip install -r requirements.txt
-cp .env.example .env   # addresses, RPC, signer key, Supabase URL
-uvicorn app.main:app --reload
+agent-arena/
+├── contracts/               Solidity + Foundry
+│   ├── contracts/           AgentNFT, BattleArena, SoloArena, League,
+│   │                        Tournament, Marketplace, Shop
+│   └── script/              Deploy.s.sol, SetupBots.s.sol
+├── backend/
+│   ├── app/
+│   │   ├── combat/          realtime engine, bot AI, WebSocket rooms
+│   │   ├── engine/          deterministic simulator, personalities,
+│   │   │                    league fixtures, tournaments, memory
+│   │   ├── chain/           web3 client, event listener, boosts
+│   │   ├── market/          achievements + item catalog
+│   │   └── routers/         REST + WebSocket API
+│   ├── tests/               engine + combat + market suites
+│   └── Dockerfile           Koyeb-ready
+└── frontend/                Next.js app (all pages + combat renderer)
 ```
-The listener resolves duels (ChallengeAccepted, QuickMatchStarted) and
-tournaments (TournamentStarted), mirrors AgentMinted, and maintains ELO
-(K=32, start 1000). Supabase: use the session pooler string as
-`postgresql+asyncpg://...`.
 
-**Tests:** `cd backend && python tests/test_engine.py`
+---
 
-## Frontend integration
+## Deployment
 
-On-chain writes (wagmi/viem):
-- `AgentNFT.mintAgent(name, personality)` — 0 Aggressive / 1 Defensive / 2 Tactical
-- `BattleArena.challenge(myAgent, target)` payable · `accept(battleId)` payable
-- `BattleArena.quickMatch(myAgent, target)` · `setQuickMatch(agentId, bool)`
-- `BattleArena.cancelChallenge(battleId)` / `cancelStaleBattle(battleId)`
-- `SoloArena.play(agentId, botId)` payable (0 = free) · `refundStale(gameId)`
-- `League.createLeague(fee, maxPlayers, start, end, keccak256(code) | 0x0)`
-- `League.join(leagueId, code, agentId)` payable · `activate(leagueId)`
-- `Tournament.enter(tid, agentId)` payable
-- `Marketplace.list/delist/buy` (approve the marketplace first)
+### 1. Contracts (Foundry)
 
-API:
-- `GET /agents?owner=0x..` · `GET /agents/{id}` · `GET /agents/{id}/preview?opponent_id=X&seed=N`
-- `GET /matchmaking/{id}` — ELO-near opponents to challenge
-- `GET /battles?agent_id=X` · `GET /battles/{id}` — round-by-round log
-  (`moves.rounds[].events[]`: move, damage, hit, crit, countered)
-- `GET /solo/bots` — house bot roster · `GET /solo/games?agent_id=X`
-- `GET /leagues` · `GET /leagues/{id}` — room, fixtures, LIVE standings
-- `GET /leagues/{id}/fixtures/{agentId}` — your unplayed "home games"
-- `POST /leagues/{id}/fixtures/{idx}/play` — body `{wallet, signature}`
-  where signature is EIP-191 over `agent-arena:play:{leagueId}:{idx}`
-  (only the initiating agent's owner can play; opponent can be offline)
-- `GET /tournaments` · `GET /tournaments/{tid}` — full bracket + logs
-- `GET /leaderboard` · `POST /users` · `GET /metadata/{id}`
+```bash
+cd contracts
+forge install foundry-rs/forge-std
+forge install OpenZeppelin/openzeppelin-contracts
+forge build
+```
 
-Duel flow: `challenge`/`quickMatch` → poll `GET /battles/{battleId}`
-until `status == "resolved"` (seconds) → animate `moves.rounds`.
+Create two wallets and fund both with BOT (testnet faucet:
+https://faucet.botchain.ai/basic):
+- **deployer** — owns the contracts, mints house bots
+- **game server** — hot key on the backend; settles results, sends
+  boosts. Never reuse the deployer key here.
+
+```bash
+export PRIVATE_KEY=0x...                 # deployer key
+export GAME_SERVER_ADDRESS=0x...         # game server ADDRESS
+export BOTCHAIN_TESTNET_RPC=https://...  # from dev-docs.botchain.ai
+export METADATA_BASE_URI=https://<your-koyeb-app>.koyeb.app/metadata/
+
+forge script script/Deploy.s.sol --rpc-url botchain_testnet --broadcast
+```
+
+This deploys all seven contracts, authorizes the arenas + game server on
+the NFT, and prints every address in env-var format. Copy them, then
+mint the house bots and fund the solo vault:
+
+```bash
+export AGENT_NFT_ADDRESS=0x... SOLO_ARENA_ADDRESS=0x...
+export VAULT_FUNDING_WEI=5000000000000000000   # 5 BOT
+forge script script/SetupBots.s.sol --rpc-url botchain_testnet --broadcast
+```
+
+Optionally price items for BOT purchases:
+
+```bash
+cast send $SHOP_ADDRESS "setPrice(string,uint128)" "av_champion" \
+  2000000000000000000 --rpc-url botchain_testnet --private-key $PRIVATE_KEY
+```
+
+For mainnet, repeat with `--rpc-url botchain` (chainId 677).
+
+### 2. Backend on Koyeb (Docker)
+
+The backend ships with a production `Dockerfile` (see `backend/`).
+
+1. Push this repo to GitHub.
+2. Koyeb → **Create Service → GitHub** → pick the repo, set the **work
+   directory to `backend/`** (Koyeb auto-detects the Dockerfile).
+3. Instance: the smallest works to start. **Port 8000**, health check
+   path `/health`.
+4. Environment variables (Koyeb → Settings → Environment):
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Supabase **session pooler** string as `postgresql+asyncpg://...` |
+| `RPC_URL` | BOT Chain RPC |
+| `CHAIN_ID` | `677` (or testnet id) |
+| `AGENT_NFT_ADDRESS` … `SHOP_ADDRESS` | from the deploy output |
+| `GAME_SERVER_PRIVATE_KEY` | the game server key (keep it BOT-funded — it pays result gas) |
+| `BOT_OWNER_ADDRESS` | the wallet that minted the house bots |
+| `CORS_ORIGINS` | your frontend URL(s), comma-separated |
+
+5. Deploy. Logs should show `Listener started at block N` — that's the
+   game loop watching the chain. WebSockets work on Koyeb out of the box
+   (the combat rooms need them).
+
+Local dev instead: `pip install -r requirements.txt && uvicorn
+app.main:app --reload` (SQLite by default, chain env optional — the
+practice arena works with none of it).
+
+### 3. Frontend
+
+```bash
+cd frontend
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL = your Koyeb URL,
+                             # RPC, and the NEXT_PUBLIC_* addresses
+npm install && npm run dev   # or deploy to Vercel with the same env
+```
+
+### Smoke test, end to end
+
+1. Open the app on your phone → `/combat` → FIGHT (works before any
+   chain setup — practice is chain-free).
+2. Connect wallet → mint an agent → it appears on the dashboard within
+   seconds (listener mirroring `AgentMinted`).
+3. Second wallet: mint, enable quick-match, fight — watch the replay
+   land with the on-chain tx link.
+4. `/achievements` → claim → `/market` → redeem a skin → your roster
+   card wears it.
+
+---
+
+## Tests
+
+```bash
+cd backend
+python tests/test_engine.py   # deterministic sim: balance, determinism, tiers
+python tests/test_combat.py   # realtime: anti-mash, rate caps, parries
+```
+
+## License
+
+MIT — build on it.

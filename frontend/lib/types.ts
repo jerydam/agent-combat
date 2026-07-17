@@ -25,6 +25,7 @@ export interface Agent {
   losses: number;
   ranking_points: number;
   tier?: number;
+  skin?: string; // equipped avatar item id
 }
 
 export interface BattleEvent {

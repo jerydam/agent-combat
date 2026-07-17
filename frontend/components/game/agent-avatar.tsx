@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { PERSONALITY_NAMES, TIER_NAMES, type PersonalityId } from '@/lib/types';
+import { AVATARS } from '@/lib/avatars';
 
 const TIER_RING: Record<number, string> = {
   1: 'ring-slate-500/40 shadow-[0_0_12px_rgba(148,163,184,0.25)]',
@@ -27,6 +28,7 @@ interface AgentAvatarProps {
   name: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   animate?: boolean;
+  skin?: string; // equipped avatar item id
 }
 
 const SIZES = {
@@ -36,7 +38,8 @@ const SIZES = {
   xl: 'h-40 w-40 text-8xl',
 };
 
-export function AgentAvatar({ personality, tier = 1, name, size = 'md', animate }: AgentAvatarProps) {
+export function AgentAvatar({ personality, tier = 1, name, size = 'md', animate, skin }: AgentAvatarProps) {
+  const img = skin ? AVATARS[skin] : undefined;
   return (
     <div
       title={`${name} — ${PERSONALITY_NAMES[personality]} · ${TIER_NAMES[tier] ?? 'Basic'}`}
@@ -48,7 +51,12 @@ export function AgentAvatar({ personality, tier = 1, name, size = 'md', animate 
         animate && 'animate-pulse',
       )}
     >
-      <span className="select-none drop-shadow">{PERSONALITY_GLYPH[personality] ?? '⚔'}</span>
+      {img ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={img.src} alt={img.name} className="h-full w-full rounded-2xl object-cover" draggable={false} />
+      ) : (
+        <span className="select-none drop-shadow">{PERSONALITY_GLYPH[personality] ?? '⚔'}</span>
+      )}
     </div>
   );
 }

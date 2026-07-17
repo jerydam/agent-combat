@@ -42,6 +42,7 @@ export function AgentCard({ agent, onClick, selected, compact, footer }: AgentCa
           tier={tier}
           name={agent.name}
           size={compact ? 'sm' : 'md'}
+          skin={agent.skin}
         />
         <div className="min-w-0 flex-1">
           <h3 className="truncate font-display text-base font-bold text-foreground">
