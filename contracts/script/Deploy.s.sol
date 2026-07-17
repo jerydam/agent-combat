@@ -2,13 +2,13 @@
 pragma solidity ^0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
-import {AgentNFT} from "../contracts/AgentNFT.sol";
-import {BattleArena} from "../contracts/BattleArena.sol";
-import {SoloArena} from "../contracts/SoloArena.sol";
-import {League} from "../contracts/League.sol";
-import {Tournament} from "../contracts/Tournament.sol";
-import {Marketplace} from "../contracts/Marketplace.sol";
-import {Shop} from "../contracts/Shop.sol";
+import {AgentNFT} from "../src/AgentNFT.sol";
+import {BattleArena} from "../src/BattleArena.sol";
+import {SoloArena} from "../src/SoloArena.sol";
+import {League} from "../src/League.sol";
+import {Tournament} from "../src/Tournament.sol";
+import {Marketplace} from "../src/Marketplace.sol";
+import {Shop} from "../src/Shop.sol";
 
 /// forge script script/Deploy.s.sol --rpc-url botchain_testnet --broadcast
 contract Deploy is Script {

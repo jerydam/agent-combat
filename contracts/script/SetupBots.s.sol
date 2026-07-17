@@ -2,8 +2,8 @@
 pragma solidity ^0.8.28;
 
 import {Script, console} from "forge-std/Script.sol";
-import {AgentNFT} from "../contracts/AgentNFT.sol";
-import {SoloArena} from "../contracts/SoloArena.sol";
+import {AgentNFT} from "../src/AgentNFT.sol";
+import {SoloArena} from "../src/SoloArena.sol";
 
 /// Mints the house-bot roster, registers them on SoloArena, and funds the
 /// vault so staked solo play can pay out.
