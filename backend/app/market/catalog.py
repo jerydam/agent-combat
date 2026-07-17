@@ -152,11 +152,11 @@ CATALOG: list[ItemDef] = [
     # ---- new additions pack (mid-high tier) ----
     ItemDef("av_phantom",   "skin", "Phantom",   "Purple void ghost. Strikes from the abyss.",             1500),
     ItemDef("av_berserker", "skin", "Berserker", "Blazing orange rage fighter. High-ATK playstyle.",       1500),
-    ItemDef("av_warlord",   "skin", "Warlord",   "Gold-trimmed armored commander. Prestige tournament feel.", 2000),
     ItemDef("av_specter",   "skin", "Specter",   "Neon-green matrix hacker. High-INT tactical mind.",      1800),
     ItemDef("av_tempest",   "skin", "Tempest",   "Cyan lightning elemental. Built for pure speed.",        1800),
     ItemDef("av_ironclad",  "skin", "Ironclad",  "Silver/gunmetal tank. DEF-heavy and immovable.",         2000),
     ItemDef("av_oracle",    "skin", "Oracle",    "Purple psychic seer. Sees your next move already.",      2000),
+    ItemDef("av_warlord",   "skin", "Warlord",   "Gold-trimmed armored commander. Prestige tournament feel.", 2000),
     ItemDef("av_ranger_red",  "skin", "Red Ranger",  "Bold sentai front-liner. Aggressive and fearless.",         2500),
     ItemDef("av_ranger_blue", "skin", "Blue Ranger",  "Cool-headed sentai tactician. Calm under pressure.",        2500),
     ItemDef("av_ranger_gold", "skin", "Gold Ranger",  "Elite prestige variant. Reserved for tournament legends.",  4000),

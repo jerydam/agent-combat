@@ -52,14 +52,6 @@ export function NavShell({ children }: { children: React.ReactNode }) {
               className="h-10 w-10 drop-shadow-[0_0_12px_rgba(20,184,166,0.4)]"
               draggable={false}
             />
-            <div className="text-left leading-none">
-              <div className="font-display text-lg font-bold tracking-wider text-foreground">
-                AGENT<span className="text-primary">COMBAT</span>
-              </div>
-              <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                Onchain AI Battles
-              </div>
-            </div>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">

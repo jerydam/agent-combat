@@ -33,8 +33,7 @@ export const AVATARS: Record<string, AvatarDef> = {
   
   // Berserker – blazing orange rage fighter; pairs well with high-ATK agents
   av_berserker: { src: '/avatars/av_berserker.svg', name: 'Berserker' },
-  // Warlord   – gold-trimmed armored commander; prestige / tournament feel
-  av_warlord:   { src: '/avatars/av_warlord.svg',   name: 'Warlord' },
+  
   // Specter   – neon-green matrix hacker; high-INT / Tactical personality
   av_specter:   { src: '/avatars/av_specter.svg',   name: 'Specter' },
   // Tempest   – cyan lightning elemental; speed-focused aesthetic
@@ -48,7 +47,8 @@ export const AVATARS: Record<string, AvatarDef> = {
   av_ranger_blue: { src: '/avatars/av_ranger_blue.svg', name: 'Blue Ranger' },
   // Gold Ranger  – elite gold/black sentai; prestige / tournament variant
   av_ranger_gold: { src: '/avatars/av_ranger_gold.svg', name: 'Gold Ranger' },
-
+  // Warlord   – gold-trimmed armored commander; prestige / tournament feel
+  av_warlord:   { src: '/avatars/av_warlord.svg',   name: 'Warlord' },
   // ── Superhero pack ───────────────────────────────────────────────────────
   // Blaze  – red/orange flame hero; high-ATK aggressive playstyle
   av_blaze:  { src: '/avatars/av_blaze.svg',  name: 'Blaze' },
