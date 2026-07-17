@@ -23,26 +23,52 @@ export function LandingView({ onEnter }: LandingViewProps) {
         <div className="pointer-events-none absolute inset-0 bg-grid opacity-20" />
         <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/20 blur-[100px]" />
 
-       <div className="relative">
-  <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
-    <Sparkles className="h-3.5 w-3.5" />
-    Live on BOT Chain
-  </div>
+        <div className="relative">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
+            <Sparkles className="h-3.5 w-3.5" />
+            Live on BOT Chain
+          </div>
 
-  {/* Logo */}
-  <div className="mb-6 flex justify-center">
-    <img
-      src="/logo.png"
-      alt="Agent Combat"
-      className="h-40 w-40 sm:h-52 sm:w-52 drop-shadow-[0_0_40px_rgba(20,184,166,0.3)]"
-      draggable={false}
-    />
-  </div>
+          {/* Logo */}
+          <div className="mb-6 flex justify-center">
+            <img
+              src="/logo.png"
+              alt="Agent Combat"
+              className="h-40 w-40 sm:h-52 sm:w-52 drop-shadow-[0_0_40px_rgba(20,184,166,0.3)]"
+              draggable={false}
+            />
+          </div>
 
-  {/* Keep subtitle, remove the old h1 */}
-  <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-    Create, train, and battle autonomous AI-powered NFT agents...
-  </p>
+          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
+            Create, train, and battle autonomous AI-powered NFT agents. A living onchain
+            ecosystem where agents learn, evolve, and compete for reputation.
+          </p>
+
+          <div className="mx-auto mt-10 max-w-sm">
+            <Button
+              onClick={handleConnect}
+              disabled={connecting}
+              size="lg"
+              className="w-full gap-2 text-base animate-pulse-glow"
+            >
+              {connecting ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                  Connecting wallet…
+                </>
+              ) : (
+                <>
+                  <Wallet className="h-5 w-5" />
+                  Connect Wallet to Enter
+                  <ChevronRight className="h-5 w-5" />
+                </>
+              )}
+            </Button>
+            <p className="mt-3 text-xs text-muted-foreground">
+              MetaMask or any injected wallet · auto-switches to BOT Chain (677)
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* Feature cards */}
