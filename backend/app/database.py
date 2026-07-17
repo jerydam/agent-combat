@@ -12,9 +12,11 @@ class Base(DeclarativeBase):
     pass
 
 
-engine = create_async_engine(get_settings().database_url, echo=False)
-SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
-
+engine = create_async_engine(
+    get_settings().database_url,
+    echo=False,
+    connect_args={"statement_cache_size": 0},
+)
 
 async def get_db() -> AsyncSession:
     async with SessionLocal() as session:

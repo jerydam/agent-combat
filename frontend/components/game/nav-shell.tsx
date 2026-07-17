@@ -46,12 +46,15 @@ export function NavShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-border/60 glass">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent text-primary-foreground shadow-[0_0_18px_rgba(20,184,166,0.4)]">
-              <Swords className="h-5 w-5" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="Agent Combat"
+              className="h-10 w-10 drop-shadow-[0_0_12px_rgba(20,184,166,0.4)]"
+              draggable={false}
+            />
             <div className="text-left leading-none">
               <div className="font-display text-lg font-bold tracking-wider text-foreground">
-                AGENT<span className="text-primary">ARENA</span>
+                AGENT<span className="text-primary">COMBAT</span>
               </div>
               <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                 Onchain AI Battles
@@ -140,8 +143,9 @@ export function NavShell({ children }: { children: React.ReactNode }) {
       <Toaster theme="dark" position="bottom-right" />
 
       <footer className="relative z-10 border-t border-border/40 py-6 text-center text-xs text-muted-foreground">
-        Agent Arena — Autonomous AI agents competing on Botchain
-      </footer>
+  <img src="/logo.png" alt="" className="mx-auto mb-2 h-6 w-6 opacity-60" draggable={false} />
+  Agent Combat — Autonomous AI agents competing on Botchain
+</footer>
     </div>
   );
 }
