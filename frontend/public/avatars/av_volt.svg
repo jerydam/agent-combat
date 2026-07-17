@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Cartoon superhero VOLT - blue/yellow electric -->
+  <defs>
+    <radialGradient id="volt_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0a1628"/>
+    </radialGradient>
+  </defs>
+
+  <circle cx="100" cy="100" r="100" fill="url(#volt_bg)"/>
+  <!-- Electric burst lines -->
+  <line x1="100" y1="100" x2="8" y2="30" stroke="#fbbf24" stroke-width="2" opacity="0.35"/>
+  <line x1="100" y1="100" x2="192" y2="25" stroke="#60a5fa" stroke-width="2" opacity="0.3"/>
+  <line x1="100" y1="100" x2="5" y2="120" stroke="#fbbf24" stroke-width="2" opacity="0.25"/>
+  <line x1="100" y1="100" x2="195" y2="115" stroke="#60a5fa" stroke-width="2" opacity="0.25"/>
+  <line x1="100" y1="100" x2="25" y2="188" stroke="#fbbf24" stroke-width="1.5" opacity="0.2"/>
+  <line x1="100" y1="100" x2="175" y2="190" stroke="#60a5fa" stroke-width="1.5" opacity="0.2"/>
+  <!-- Zigzag lightning bg -->
+  <path d="M15 60 L25 50 L18 70 L30 58" stroke="#fbbf24" stroke-width="1.5" fill="none" opacity="0.2"/>
+  <path d="M170 55 L180 45 L173 65 L185 53" stroke="#fbbf24" stroke-width="1.5" fill="none" opacity="0.2"/>
+
+  <!-- Cape -->
+  <path d="M65 130 Q42 162 48 210 L100 196 L152 210 Q158 162 135 130 Q118 146 100 149 Q82 146 65 130Z" fill="#2563eb" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M74 137 Q58 165 60 202 L100 192 L140 202 Q142 165 126 137 Q112 150 100 152 Q88 150 74 137Z" fill="#1d4ed8"/>
+  <!-- Cape lightning stripe -->
+  <path d="M100 149 L94 168 L102 168 L93 192" stroke="#fbbf24" stroke-width="2.5" fill="none" opacity="0.8"/>
+
+  <!-- Body -->
+  <path d="M62 210 L67 148 Q78 128 100 122 Q122 128 133 148 L138 210Z" fill="#2563eb" stroke="#111" stroke-width="3"/>
+  <!-- Chest shading -->
+  <path d="M80 135 Q90 130 100 132 Q110 130 120 135 Q112 146 100 148 Q88 146 80 135Z" fill="#1d4ed8"/>
+  <!-- Belt -->
+  <rect x="72" y="157" width="56" height="10" rx="3" fill="#fbbf24" stroke="#111" stroke-width="2"/>
+  <rect x="95" y="154" width="10" height="16" rx="2" fill="#f59e0b" stroke="#111" stroke-width="2"/>
+  <!-- Chest bolt -->
+  <path d="M107 126 L98 142 L105 142 L95 158 L110 138 L103 138 L111 126Z" fill="#fbbf24" stroke="#111" stroke-width="2"/>
+
+  <!-- Arms -->
+  <path d="M67 148 Q50 142 42 130 Q38 116 46 110 Q56 114 62 130Z" fill="#2563eb" stroke="#111" stroke-width="3"/>
+  <path d="M133 148 Q150 142 158 130 Q162 116 154 110 Q144 114 138 130Z" fill="#2563eb" stroke="#111" stroke-width="3"/>
+  <!-- Electric gloves -->
+  <ellipse cx="44" cy="110" rx="13" ry="10" fill="#fbbf24" stroke="#111" stroke-width="2.5"/>
+  <ellipse cx="156" cy="110" rx="13" ry="10" fill="#fbbf24" stroke="#111" stroke-width="2.5"/>
+  <!-- Sparks from fists -->
+  <path d="M30 104 L36 108 L28 112" stroke="#60a5fa" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M168 104 L162 108 L170 112" stroke="#60a5fa" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Neck -->
+  <rect x="88" y="96" width="24" height="28" rx="6" fill="#bfdbfe" stroke="#111" stroke-width="2.5"/>
+
+  <!-- HEAD -->
+  <ellipse cx="100" cy="68" rx="36" ry="34" fill="#bfdbfe" stroke="#111" stroke-width="3.5"/>
+
+  <!-- Mask top -->
+  <path d="M64 60 Q68 36 100 32 Q132 36 136 60 Q120 52 100 50 Q80 52 64 60Z" fill="#2563eb" stroke="#111" stroke-width="3"/>
+  <!-- Eye holes -->
+  <ellipse cx="86" cy="60" rx="11" ry="8" fill="#111"/>
+  <ellipse cx="114" cy="60" rx="11" ry="8" fill="#111"/>
+  <ellipse cx="86" cy="59" rx="8" ry="6" fill="white"/>
+  <ellipse cx="114" cy="59" rx="8" ry="6" fill="white"/>
+  <!-- Pupils with electric effect -->
+  <circle cx="87" cy="59" r="4" fill="#2563eb"/>
+  <circle cx="115" cy="59" r="4" fill="#2563eb"/>
+  <circle cx="87" cy="59" r="2" fill="#111"/>
+  <circle cx="115" cy="59" r="2" fill="#111"/>
+  <circle cx="85.5" cy="57.5" r="1.5" fill="white"/>
+  <circle cx="113.5" cy="57.5" r="1.5" fill="white"/>
+
+  <!-- Nose -->
+  <ellipse cx="100" cy="72" rx="4" ry="3" fill="#93c5fd"/>
+  <!-- Confident smirk -->
+  <path d="M90 80 Q103 88 112 80" stroke="#111" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M112 80 Q114 76 112 74" stroke="#111" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Spiky electric hair -->
+  <path d="M68 44 L60 28 L70 42Z" fill="#fbbf24" stroke="#111" stroke-width="2"/>
+  <path d="M78 36 L74 18 L84 34Z" fill="#2563eb" stroke="#111" stroke-width="2"/>
+  <path d="M90 32 L88 14 L97 30Z" fill="#fbbf24" stroke="#111" stroke-width="2"/>
+  <path d="M103 30 L105 12 L112 30Z" fill="#2563eb" stroke="#111" stroke-width="2"/>
+  <path d="M115 34 L120 16 L124 36Z" fill="#fbbf24" stroke="#111" stroke-width="2"/>
+  <path d="M126 42 L134 26 L132 44Z" fill="#2563eb" stroke="#111" stroke-width="1.5"/>
+
+  <!-- Mask antenna/fin on top -->
+  <path d="M96 32 L98 22 L100 18 L102 22 L104 32Z" fill="#fbbf24" stroke="#111" stroke-width="1.5"/>
+
+  <!-- Name plate -->
+  <rect x="32" y="170" width="136" height="24" rx="6" fill="#111" opacity="0.88"/>
+  <text x="100" y="187" font-family="Arial Black, sans-serif" font-size="13" font-weight="900" fill="#60a5fa" text-anchor="middle" letter-spacing="3">VOLT</text>
+
+  <circle cx="100" cy="100" r="97" fill="none" stroke="#111" stroke-width="5"/>
+  <circle cx="100" cy="100" r="94" fill="none" stroke="#fbbf24" stroke-width="2"/>
+</svg>

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bk_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3d0a00"/>
+      <stop offset="100%" stop-color="#1a0500"/>
+    </radialGradient>
+    <radialGradient id="bk_fire" cx="50%" cy="80%" r="60%">
+      <stop offset="0%" stop-color="#dc2626" stop-opacity="0.5"/>
+      <stop offset="60%" stop-color="#f97316" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#f97316" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="bk_glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="bk_soft">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+    <clipPath id="bk_circle">
+      <circle cx="100" cy="100" r="98"/>
+    </clipPath>
+  </defs>
+
+  <circle cx="100" cy="100" r="100" fill="url(#bk_bg)"/>
+  <circle cx="100" cy="100" r="100" fill="url(#bk_fire)"/>
+
+  <g clip-path="url(#bk_circle)">
+    <!-- Fire/energy at base -->
+    <ellipse cx="100" cy="195" rx="65" ry="20" fill="#dc2626" opacity="0.2" filter="url(#bk_soft)"/>
+
+    <!-- Muscular torso / armor -->
+    <path d="M50 210 L58 130 Q65 115 80 108 L100 105 L120 108 Q135 115 142 130 L150 210 Z" fill="#4a1010"/>
+    <!-- Chest plates -->
+    <path d="M80 108 Q90 118 100 120 Q110 118 120 108 Q112 125 100 128 Q88 125 80 108 Z" fill="#7f1d1d"/>
+    <!-- Abs -->
+    <rect x="93" y="128" width="14" height="8" rx="3" fill="#991b1b" opacity="0.8"/>
+    <rect x="93" y="140" width="14" height="8" rx="3" fill="#991b1b" opacity="0.8"/>
+
+    <!-- Spiked shoulder pads -->
+    <path d="M58 130 Q50 120 45 110 Q55 112 62 120 Z" fill="#7f1d1d"/>
+    <path d="M45 110 L42 100 L50 108 Z" fill="#dc2626" opacity="0.8"/>
+    <path d="M142 130 Q150 120 155 110 Q145 112 138 120 Z" fill="#7f1d1d"/>
+    <path d="M155 110 L158 100 L150 108 Z" fill="#dc2626" opacity="0.8"/>
+
+    <!-- Arm left - raised/tense -->
+    <path d="M62 130 Q48 125 40 118 Q38 108 44 104 Q52 108 60 118 Z" fill="#5c1515"/>
+    <!-- Arm right - fist -->
+    <path d="M138 130 Q152 125 160 118 Q162 108 156 104 Q148 108 140 118 Z" fill="#5c1515"/>
+
+    <!-- Neck with veins -->
+    <rect x="89" y="88" width="22" height="20" rx="5" fill="#7f2020"/>
+    <line x1="95" y1="90" x2="94" y2="106" stroke="#dc2626" stroke-width="0.8" opacity="0.6"/>
+    <line x1="105" y1="90" x2="106" y2="106" stroke="#dc2626" stroke-width="0.8" opacity="0.6"/>
+
+    <!-- Head - broad, battle-worn -->
+    <ellipse cx="100" cy="68" rx="32" ry="30" fill="#7f2020"/>
+    <ellipse cx="100" cy="67" rx="29" ry="27" fill="#991b1b"/>
+
+    <!-- Battle scars on face -->
+    <line x1="88" y1="58" x2="94" y2="74" stroke="#3d0a00" stroke-width="1.5" opacity="0.7"/>
+    <line x1="110" y1="62" x2="107" y2="72" stroke="#3d0a00" stroke-width="1" opacity="0.5"/>
+
+    <!-- Brow ridge - heavy/angry -->
+    <path d="M72 60 Q85 54 100 56 Q115 54 128 60 Q115 64 100 63 Q85 64 72 60 Z" fill="#5c1515"/>
+
+    <!-- Eyes - blazing with rage -->
+    <ellipse cx="88" cy="67" rx="8" ry="5" fill="#1a0500"/>
+    <ellipse cx="112" cy="67" rx="8" ry="5" fill="#1a0500"/>
+    <ellipse cx="88" cy="67" rx="6" ry="3.5" fill="#f97316" filter="url(#bk_glow)"/>
+    <ellipse cx="112" cy="67" rx="6" ry="3.5" fill="#f97316" filter="url(#bk_glow)"/>
+    <ellipse cx="88" cy="67" rx="2.5" ry="2" fill="#fef3c7"/>
+    <ellipse cx="112" cy="67" rx="2.5" ry="2" fill="#fef3c7"/>
+
+    <!-- Snarling mouth -->
+    <path d="M86 80 Q93 85 100 86 Q107 85 114 80 Q107 88 100 89 Q93 88 86 80 Z" fill="#3d0a00"/>
+    <!-- Teeth -->
+    <rect x="92" y="83" width="5" height="4" rx="1" fill="#fef9ee" opacity="0.9"/>
+    <rect x="99" y="83" width="5" height="4" rx="1" fill="#fef9ee" opacity="0.9"/>
+
+    <!-- Horned helmet remnants / battle damage -->
+    <path d="M72 50 Q74 38 78 30 L82 45 Q78 40 76 50 Z" fill="#7f1d1d"/>
+    <path d="M128 50 Q126 38 122 30 L118 45 Q122 40 124 50 Z" fill="#7f1d1d"/>
+
+    <!-- Rage aura particles -->
+    <circle cx="58" cy="75" r="2" fill="#f97316" opacity="0.7" filter="url(#bk_soft)"/>
+    <circle cx="145" cy="80" r="2.5" fill="#dc2626" opacity="0.6" filter="url(#bk_soft)"/>
+    <circle cx="52" cy="95" r="1.5" fill="#f97316" opacity="0.4"/>
+    <circle cx="150" cy="92" r="1.5" fill="#f97316" opacity="0.5"/>
+
+    <!-- Name plate -->
+    <rect x="28" y="168" width="144" height="22" rx="4" fill="#1a0500" opacity="0.8"/>
+    <text x="100" y="183" font-family="monospace" font-size="11" font-weight="bold" fill="#f97316" text-anchor="middle" letter-spacing="1">BERSERKER</text>
+  </g>
+
+  <circle cx="100" cy="100" r="98" fill="none" stroke="#dc2626" stroke-width="2" opacity="0.7"/>
+  <circle cx="100" cy="100" r="96" fill="none" stroke="#f97316" stroke-width="0.5" opacity="0.3"/>
+</svg>

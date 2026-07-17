@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Cartoon superhero BLAZE - red/orange, thick black outlines -->
+  <defs>
+    <radialGradient id="blaze_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7f1d1d"/>
+      <stop offset="100%" stop-color="#450a0a"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="100" cy="100" r="100" fill="url(#blaze_bg)"/>
+  <!-- Action burst lines -->
+  <line x1="100" y1="100" x2="10" y2="20" stroke="#ef4444" stroke-width="3" opacity="0.3"/>
+  <line x1="100" y1="100" x2="190" y2="15" stroke="#f97316" stroke-width="2" opacity="0.25"/>
+  <line x1="100" y1="100" x2="5" y2="110" stroke="#ef4444" stroke-width="2" opacity="0.2"/>
+  <line x1="100" y1="100" x2="195" y2="105" stroke="#f97316" stroke-width="2" opacity="0.2"/>
+  <line x1="100" y1="100" x2="20" y2="185" stroke="#ef4444" stroke-width="2" opacity="0.2"/>
+  <line x1="100" y1="100" x2="180" y2="190" stroke="#f97316" stroke-width="2" opacity="0.2"/>
+  <line x1="100" y1="100" x2="100" y2="5" stroke="#fbbf24" stroke-width="2" opacity="0.25"/>
+
+  <!-- Cape -->
+  <path d="M62 128 Q40 160 45 210 L100 195 L155 210 Q160 160 138 128 Q120 145 100 148 Q80 145 62 128Z" fill="#dc2626" stroke="#111" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M72 135 Q60 165 62 200 L100 190 L138 200 Q140 165 128 135 Q112 148 100 150 Q88 148 72 135Z" fill="#b91c1c"/>
+
+  <!-- Body / suit -->
+  <path d="M60 210 L65 148 Q75 128 100 122 Q125 128 135 148 L140 210Z" fill="#dc2626" stroke="#111" stroke-width="3"/>
+  <!-- Chest muscle shading -->
+  <path d="M80 135 Q90 130 100 132 Q110 130 120 135 Q112 145 100 147 Q88 145 80 135Z" fill="#b91c1c"/>
+  <!-- Belt -->
+  <rect x="72" y="155" width="56" height="10" rx="3" fill="#fbbf24" stroke="#111" stroke-width="2"/>
+  <rect x="95" y="152" width="10" height="16" rx="2" fill="#f59e0b" stroke="#111" stroke-width="2"/>
+  <!-- Chest bolt/insignia -->
+  <path d="M105 128 L98 140 L104 140 L96 155 L108 136 L102 136 L109 128Z" fill="#fbbf24" stroke="#111" stroke-width="1.5"/>
+
+  <!-- Arms - muscular cartoon -->
+  <path d="M65 148 Q48 142 40 130 Q36 118 44 112 Q54 116 60 130Z" fill="#dc2626" stroke="#111" stroke-width="3"/>
+  <path d="M135 148 Q152 142 160 130 Q164 118 156 112 Q146 116 140 130Z" fill="#dc2626" stroke="#111" stroke-width="3"/>
+  <!-- Fists -->
+  <ellipse cx="40" cy="112" rx="12" ry="10" fill="#fca5a5" stroke="#111" stroke-width="2.5"/>
+  <ellipse cx="160" cy="112" rx="12" ry="10" fill="#fca5a5" stroke="#111" stroke-width="2.5"/>
+  <!-- Knuckle lines -->
+  <line x1="33" y1="108" x2="47" y2="108" stroke="#111" stroke-width="1.5"/>
+  <line x1="33" y1="112" x2="47" y2="112" stroke="#111" stroke-width="1"/>
+  <line x1="153" y1="108" x2="167" y2="108" stroke="#111" stroke-width="1.5"/>
+  <line x1="153" y1="112" x2="167" y2="112" stroke="#111" stroke-width="1"/>
+
+  <!-- Neck -->
+  <rect x="88" y="96" width="24" height="28" rx="6" fill="#fca5a5" stroke="#111" stroke-width="2.5"/>
+
+  <!-- HEAD - big cartoon style -->
+  <ellipse cx="100" cy="68" rx="36" ry="34" fill="#fca5a5" stroke="#111" stroke-width="3.5"/>
+
+  <!-- Mask - top half -->
+  <path d="M64 62 Q66 38 100 34 Q134 38 136 62 Q122 54 100 52 Q78 54 64 62Z" fill="#dc2626" stroke="#111" stroke-width="3"/>
+  <!-- Mask eye holes -->
+  <ellipse cx="86" cy="62" rx="11" ry="8" fill="#111" stroke="#111" stroke-width="1"/>
+  <ellipse cx="114" cy="62" rx="11" ry="8" fill="#111" stroke="#111" stroke-width="1"/>
+  <!-- Cartoon whites of eyes -->
+  <ellipse cx="86" cy="61" rx="8" ry="6" fill="white"/>
+  <ellipse cx="114" cy="61" rx="8" ry="6" fill="white"/>
+  <!-- Pupils -->
+  <circle cx="87" cy="61" r="4" fill="#111"/>
+  <circle cx="115" cy="61" r="4" fill="#111"/>
+  <!-- Eye shine -->
+  <circle cx="85" cy="59" r="1.5" fill="white"/>
+  <circle cx="113" cy="59" r="1.5" fill="white"/>
+
+  <!-- Nose -->
+  <ellipse cx="100" cy="74" rx="4" ry="3" fill="#f87171"/>
+  <!-- Smile - determined grin -->
+  <path d="M85 81 Q100 92 115 81" stroke="#111" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M85 81 Q100 93 115 81" fill="#e11d48" opacity="0.4"/>
+  <!-- Teeth -->
+  <path d="M90 84 Q100 90 110 84 L108 88 Q100 93 92 88Z" fill="white" stroke="#111" stroke-width="1"/>
+
+  <!-- Mask side fins -->
+  <path d="M64 58 L52 48 L62 62Z" fill="#dc2626" stroke="#111" stroke-width="2"/>
+  <path d="M136 58 L148 48 L138 62Z" fill="#dc2626" stroke="#111" stroke-width="2"/>
+
+  <!-- Flame hair on top -->
+  <path d="M78 36 Q76 22 82 12 Q86 24 84 36Z" fill="#f97316" stroke="#111" stroke-width="2"/>
+  <path d="M90 32 Q90 16 96 8 Q100 20 98 34Z" fill="#fbbf24" stroke="#111" stroke-width="2"/>
+  <path d="M102 32 Q104 16 108 10 Q110 22 108 34Z" fill="#f97316" stroke="#111" stroke-width="2"/>
+  <path d="M114 36 Q118 22 122 14 Q122 26 118 38Z" fill="#fbbf24" stroke="#111" stroke-width="1.5"/>
+
+  <!-- Name plate -->
+  <rect x="28" y="170" width="144" height="24" rx="6" fill="#111" opacity="0.85"/>
+  <text x="100" y="187" font-family="Arial Black, sans-serif" font-size="13" font-weight="900" fill="#fbbf24" text-anchor="middle" letter-spacing="2">BLAZE</text>
+
+  <!-- Border -->
+  <circle cx="100" cy="100" r="97" fill="none" stroke="#111" stroke-width="5"/>
+  <circle cx="100" cy="100" r="94" fill="none" stroke="#f97316" stroke-width="2"/>
+</svg>

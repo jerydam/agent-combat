@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="wl_bg" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#1e2d5a"/>
+      <stop offset="100%" stop-color="#080c1f"/>
+    </radialGradient>
+    <linearGradient id="wl_gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="wl_armor" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3b5296"/>
+      <stop offset="100%" stop-color="#1e2d5a"/>
+    </linearGradient>
+    <filter id="wl_glow">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="wl_circle">
+      <circle cx="100" cy="100" r="98"/>
+    </clipPath>
+  </defs>
+
+  <circle cx="100" cy="100" r="100" fill="url(#wl_bg)"/>
+
+  <g clip-path="url(#wl_circle)">
+    <!-- Cape behind -->
+    <path d="M55 210 Q48 160 50 130 Q60 120 72 115 L100 112 L128 115 Q140 120 150 130 Q152 160 145 210 Z" fill="#1a237a"/>
+    <path d="M58 210 Q52 163 55 137 L100 125 L145 137 Q148 163 142 210 Z" fill="#283593"/>
+    <!-- Cape highlight -->
+    <path d="M90 125 Q94 140 92 165 Q95 148 98 165 Q98 140 100 125" stroke="#3949ab" stroke-width="1" fill="none" opacity="0.6"/>
+
+    <!-- Breastplate -->
+    <path d="M68 210 L72 145 Q80 128 100 124 Q120 128 128 145 L132 210 Z" fill="url(#wl_armor)"/>
+    <!-- Breastplate gold trim -->
+    <path d="M72 145 Q80 128 100 124 Q120 128 128 145" stroke="url(#wl_gold)" stroke-width="2.5" fill="none"/>
+    <!-- Center chest emblem -->
+    <path d="M100 138 L104 148 L115 148 L107 155 L110 166 L100 159 L90 166 L93 155 L85 148 L96 148 Z" fill="url(#wl_gold)" opacity="0.9"/>
+
+    <!-- Pauldrons (shoulder armor) -->
+    <ellipse cx="68" cy="130" rx="16" ry="12" fill="#2a3f8f"/>
+    <ellipse cx="68" cy="128" rx="14" ry="10" fill="#3b5296"/>
+    <path d="M54 128 Q60 120 68 118 Q76 120 82 128" stroke="url(#wl_gold)" stroke-width="2" fill="none"/>
+    <ellipse cx="132" cy="130" rx="16" ry="12" fill="#2a3f8f"/>
+    <ellipse cx="132" cy="128" rx="14" ry="10" fill="#3b5296"/>
+    <path d="M118 128 Q124 120 132 118 Q140 120 146 128" stroke="url(#wl_gold)" stroke-width="2" fill="none"/>
+
+    <!-- Neck gorget (armor collar) -->
+    <path d="M84 95 Q84 105 100 108 Q116 105 116 95 Q108 98 100 99 Q92 98 84 95 Z" fill="#2a3f8f"/>
+    <path d="M84 95 Q92 98 100 99 Q108 98 116 95" stroke="url(#wl_gold)" stroke-width="1.5" fill="none"/>
+
+    <!-- Head / helmet -->
+    <ellipse cx="100" cy="65" rx="30" ry="32" fill="#1e2d5a"/>
+
+    <!-- Helmet faceplate -->
+    <path d="M74 68 Q76 48 100 44 Q124 48 126 68 Q118 58 100 56 Q82 58 74 68 Z" fill="#2a3f8f"/>
+    <!-- Helmet crest / plume base -->
+    <rect x="96" y="32" width="8" height="14" rx="2" fill="#2a3f8f"/>
+    <!-- Plume -->
+    <path d="M96 32 Q92 20 88 8 Q96 18 100 16 Q104 18 112 8 Q108 20 104 32 Z" fill="#dc2626" opacity="0.9"/>
+    <path d="M97 32 Q94 22 91 12 Q98 20 100 18 Q102 20 109 12 Q106 22 103 32 Z" fill="#ef4444" opacity="0.7"/>
+
+    <!-- Visor slit - glowing eyes visible -->
+    <rect x="80" y="64" width="40" height="10" rx="3" fill="#0d1433"/>
+    <rect x="82" y="65" width="36" height="8" rx="2" fill="#0d1433"/>
+    <!-- Eyes through visor -->
+    <ellipse cx="91" cy="69" rx="6" ry="3" fill="#1e3a8a" opacity="0.5"/>
+    <ellipse cx="109" cy="69" rx="6" ry="3" fill="#1e3a8a" opacity="0.5"/>
+    <ellipse cx="91" cy="69" rx="4" ry="2" fill="#fbbf24" filter="url(#wl_glow)"/>
+    <ellipse cx="109" cy="69" rx="4" ry="2" fill="#fbbf24" filter="url(#wl_glow)"/>
+
+    <!-- Helmet side flares -->
+    <path d="M70 68 Q65 60 67 50 Q72 58 74 68 Z" fill="#2a3f8f"/>
+    <path d="M130 68 Q135 60 133 50 Q128 58 126 68 Z" fill="#2a3f8f"/>
+
+    <!-- Gold trim on helmet -->
+    <path d="M74 68 Q82 58 100 56 Q118 58 126 68" stroke="url(#wl_gold)" stroke-width="1.5" fill="none"/>
+    <rect x="80" y="63" width="40" height="1.5" fill="url(#wl_gold)" opacity="0.6"/>
+    <rect x="80" y="73" width="40" height="1.5" fill="url(#wl_gold)" opacity="0.6"/>
+
+    <!-- Name plate -->
+    <rect x="32" y="168" width="136" height="22" rx="4" fill="#080c1f" opacity="0.85"/>
+    <text x="100" y="183" font-family="monospace" font-size="11" font-weight="bold" fill="#fbbf24" text-anchor="middle" letter-spacing="1.5">WARLORD</text>
+  </g>
+
+  <circle cx="100" cy="100" r="98" fill="none" stroke="#f59e0b" stroke-width="2" opacity="0.6"/>
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#3b5296" stroke-width="1" opacity="0.4"/>
+</svg>

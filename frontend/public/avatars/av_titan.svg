@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Cartoon TITAN - green hulk-type, massive build -->
+  <defs>
+    <radialGradient id="titan_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#14532d"/>
+      <stop offset="100%" stop-color="#052e16"/>
+    </radialGradient>
+  </defs>
+
+  <circle cx="100" cy="100" r="100" fill="url(#titan_bg)"/>
+  <!-- Shockwave circles -->
+  <circle cx="100" cy="130" r="45" fill="none" stroke="#16a34a" stroke-width="2" opacity="0.2"/>
+  <circle cx="100" cy="130" r="65" fill="none" stroke="#16a34a" stroke-width="1.5" opacity="0.15"/>
+  <circle cx="100" cy="130" r="85" fill="none" stroke="#16a34a" stroke-width="1" opacity="0.1"/>
+
+  <!-- Ripped shorts/pants -->
+  <path d="M48 210 L56 158 L100 165 L144 158 L152 210Z" fill="#7c3aed" stroke="#111" stroke-width="3"/>
+  <!-- Rip details on pants -->
+  <line x1="70" y1="168" x2="78" y2="185" stroke="#111" stroke-width="1.5"/>
+  <line x1="75" y1="162" x2="80" y2="175" stroke="#111" stroke-width="1"/>
+  <line x1="122" y1="168" x2="130" y2="185" stroke="#111" stroke-width="1.5"/>
+
+  <!-- MASSIVE torso - way wider than normal -->
+  <path d="M42 210 L48 150 Q58 128 100 120 Q142 128 152 150 L158 210Z" fill="#16a34a" stroke="#111" stroke-width="3.5"/>
+  <!-- Massive chest muscles -->
+  <path d="M60 138 Q80 128 100 130 Q120 128 140 138 Q128 152 100 155 Q72 152 60 138Z" fill="#15803d" stroke="#111" stroke-width="2"/>
+  <line x1="100" y1="130" x2="100" y2="155" stroke="#111" stroke-width="2"/>
+  <!-- Abs -->
+  <rect x="88" y="155" width="24" height="9" rx="4" fill="#15803d" stroke="#111" stroke-width="1.5"/>
+  <rect x="88" y="167" width="24" height="9" rx="4" fill="#15803d" stroke="#111" stroke-width="1.5"/>
+  <!-- Vein on chest -->
+  <path d="M72 138 Q80 135 88 138" stroke="#14532d" stroke-width="2" fill="none" opacity="0.5"/>
+
+  <!-- HUGE arms - flexed -->
+  <path d="M48 150 Q22 140 14 122 Q10 106 22 100 Q36 104 44 122Z" fill="#16a34a" stroke="#111" stroke-width="3.5"/>
+  <!-- Bicep bulge left -->
+  <ellipse cx="30" cy="120" rx="20" ry="15" fill="#15803d" stroke="#111" stroke-width="2.5"/>
+  <path d="M152 150 Q178 140 186 122 Q190 106 178 100 Q164 104 156 122Z" fill="#16a34a" stroke="#111" stroke-width="3.5"/>
+  <!-- Bicep bulge right -->
+  <ellipse cx="170" cy="120" rx="20" ry="15" fill="#15803d" stroke="#111" stroke-width="2.5"/>
+
+  <!-- Big fists, raised -->
+  <ellipse cx="20" cy="100" rx="18" ry="15" fill="#22c55e" stroke="#111" stroke-width="3"/>
+  <ellipse cx="180" cy="100" rx="18" ry="15" fill="#22c55e" stroke="#111" stroke-width="3"/>
+  <!-- Knuckles -->
+  <line x1="8" y1="96" x2="32" y2="96" stroke="#111" stroke-width="2"/>
+  <line x1="8" y1="100" x2="32" y2="100" stroke="#111" stroke-width="1.5"/>
+  <line x1="8" y1="104" x2="32" y2="104" stroke="#111" stroke-width="1.5"/>
+  <line x1="168" y1="96" x2="192" y2="96" stroke="#111" stroke-width="2"/>
+  <line x1="168" y1="100" x2="192" y2="100" stroke="#111" stroke-width="1.5"/>
+  <line x1="168" y1="104" x2="192" y2="104" stroke="#111" stroke-width="1.5"/>
+
+  <!-- Thick neck -->
+  <rect x="82" y="92" width="36" height="30" rx="8" fill="#16a34a" stroke="#111" stroke-width="3"/>
+  <!-- Neck veins -->
+  <path d="M88 95 Q87 108 89 120" stroke="#14532d" stroke-width="2" fill="none" opacity="0.6"/>
+  <path d="M112 95 Q113 108 111 120" stroke="#14532d" stroke-width="2" fill="none" opacity="0.6"/>
+
+  <!-- BIG HEAD - wide jaw, angry -->
+  <ellipse cx="100" cy="65" rx="42" ry="36" fill="#22c55e" stroke="#111" stroke-width="3.5"/>
+  <!-- Jaw wider -->
+  <path d="M58 72 Q56 88 62 95 Q75 105 100 107 Q125 105 138 95 Q144 88 142 72Z" fill="#22c55e" stroke="#111" stroke-width="3"/>
+  <path d="M62 80 Q68 98 100 103 Q132 98 138 80Z" fill="#16a34a"/>
+
+  <!-- Angry brow ridge -->
+  <path d="M60 56 Q80 46 100 48 Q120 46 140 56 Q128 64 100 62 Q72 64 60 56Z" fill="#15803d" stroke="#111" stroke-width="2.5"/>
+  <!-- Angry slanted brows -->
+  <path d="M68 52 L86 58" stroke="#111" stroke-width="4" stroke-linecap="round"/>
+  <path d="M132 52 L114 58" stroke="#111" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Eyes - angry white with dark pupils -->
+  <ellipse cx="84" cy="64" rx="12" ry="9" fill="white" stroke="#111" stroke-width="2.5"/>
+  <ellipse cx="116" cy="64" rx="12" ry="9" fill="white" stroke="#111" stroke-width="2.5"/>
+  <circle cx="86" cy="64" r="6" fill="#111"/>
+  <circle cx="118" cy="64" r="6" fill="#111"/>
+  <circle cx="84" cy="62" r="2" fill="white"/>
+  <circle cx="116" cy="62" r="2" fill="white"/>
+
+  <!-- Snarling open mouth showing teeth -->
+  <path d="M74 86 Q100 100 126 86 Q118 96 100 98 Q82 96 74 86Z" fill="#111" stroke="#111" stroke-width="2"/>
+  <!-- Upper teeth -->
+  <rect x="82" y="87" width="8" height="7" rx="2" fill="white"/>
+  <rect x="92" y="87" width="8" height="8" rx="2" fill="white"/>
+  <rect x="102" y="87" width="8" height="8" rx="2" fill="white"/>
+  <rect x="112" y="87" width="6" height="6" rx="2" fill="white"/>
+
+  <!-- Hair - messy/wild dark green -->
+  <path d="M62 48 Q58 30 65 18 L72 38Z" fill="#14532d" stroke="#111" stroke-width="2"/>
+  <path d="M75 40 Q74 20 82 10 L86 34Z" fill="#15803d" stroke="#111" stroke-width="2"/>
+  <path d="M92 36 Q93 16 100 8 L104 32Z" fill="#14532d" stroke="#111" stroke-width="2"/>
+  <path d="M110 38 Q114 18 120 12 L118 36Z" fill="#15803d" stroke="#111" stroke-width="2"/>
+  <path d="M128 44 Q135 26 138 18 L132 40Z" fill="#14532d" stroke="#111" stroke-width="2"/>
+  <!-- Nose big -->
+  <ellipse cx="100" cy="76" rx="7" ry="5" fill="#16a34a" stroke="#111" stroke-width="2"/>
+  <circle cx="96" cy="76" r="2.5" fill="#14532d"/>
+  <circle cx="104" cy="76" r="2.5" fill="#14532d"/>
+
+  <!-- Name plate -->
+  <rect x="28" y="170" width="144" height="24" rx="6" fill="#111" opacity="0.88"/>
+  <text x="100" y="187" font-family="Arial Black, sans-serif" font-size="13" font-weight="900" fill="#4ade80" text-anchor="middle" letter-spacing="2">TITAN</text>
+
+  <circle cx="100" cy="100" r="97" fill="none" stroke="#111" stroke-width="5"/>
+  <circle cx="100" cy="100" r="94" fill="none" stroke="#22c55e" stroke-width="2"/>
+</svg>

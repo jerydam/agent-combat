@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="sp_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#001a00"/>
+      <stop offset="100%" stop-color="#000800"/>
+    </radialGradient>
+    <radialGradient id="sp_core" cx="50%" cy="45%" r="40%">
+      <stop offset="0%" stop-color="#00ff41" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#00ff41" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sp_glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="sp_soft">
+      <feGaussianBlur stdDeviation="1.5"/>
+    </filter>
+    <clipPath id="sp_circle">
+      <circle cx="100" cy="100" r="98"/>
+    </clipPath>
+  </defs>
+
+  <circle cx="100" cy="100" r="100" fill="url(#sp_bg)"/>
+  <circle cx="100" cy="100" r="100" fill="url(#sp_core)"/>
+
+  <g clip-path="url(#sp_circle)">
+    <!-- Matrix/scanline background texture -->
+    <line x1="0" y1="20" x2="200" y2="20" stroke="#00ff41" stroke-width="0.3" opacity="0.06"/>
+    <line x1="0" y1="40" x2="200" y2="40" stroke="#00ff41" stroke-width="0.3" opacity="0.06"/>
+    <line x1="0" y1="60" x2="200" y2="60" stroke="#00ff41" stroke-width="0.3" opacity="0.06"/>
+    <line x1="0" y1="80" x2="200" y2="80" stroke="#00ff41" stroke-width="0.3" opacity="0.06"/>
+    <line x1="0" y1="100" x2="200" y2="100" stroke="#00ff41" stroke-width="0.3" opacity="0.06"/>
+    <line x1="0" y1="120" x2="200" y2="120" stroke="#00ff41" stroke-width="0.3" opacity="0.06"/>
+    <line x1="0" y1="140" x2="200" y2="140" stroke="#00ff41" stroke-width="0.3" opacity="0.06"/>
+    <line x1="0" y1="160" x2="200" y2="160" stroke="#00ff41" stroke-width="0.3" opacity="0.06"/>
+    <line x1="0" y1="180" x2="200" y2="180" stroke="#00ff41" stroke-width="0.3" opacity="0.06"/>
+
+    <!-- Scattered data glyphs -->
+    <text x="22" y="50" font-family="monospace" font-size="6" fill="#00ff41" opacity="0.18">01</text>
+    <text x="160" y="75" font-family="monospace" font-size="5" fill="#00ff41" opacity="0.15">10</text>
+    <text x="30" y="130" font-family="monospace" font-size="5" fill="#00ff41" opacity="0.12">11</text>
+    <text x="155" y="140" font-family="monospace" font-size="6" fill="#00ff41" opacity="0.18">00</text>
+    <text x="145" y="55" font-family="monospace" font-size="5" fill="#00ff41" opacity="0.12">10</text>
+    <text x="18" y="160" font-family="monospace" font-size="5" fill="#00ff41" opacity="0.12">01</text>
+
+    <!-- Body - wireframe/holographic suit -->
+    <path d="M58 210 L64 132 Q72 115 88 108 L100 105 L112 108 Q128 115 136 132 L142 210 Z" fill="#001400" opacity="0.9"/>
+    <!-- Body circuit lines -->
+    <line x1="100" y1="105" x2="100" y2="160" stroke="#00ff41" stroke-width="0.8" opacity="0.4"/>
+    <line x1="85" y1="120" x2="115" y2="120" stroke="#00ff41" stroke-width="0.8" opacity="0.3"/>
+    <line x1="80" y1="140" x2="120" y2="140" stroke="#00ff41" stroke-width="0.8" opacity="0.3"/>
+    <!-- Circuit nodes -->
+    <circle cx="100" cy="120" r="2" fill="#00ff41" opacity="0.5" filter="url(#sp_soft)"/>
+    <circle cx="100" cy="140" r="2" fill="#00ff41" opacity="0.5" filter="url(#sp_soft)"/>
+    <circle cx="88" cy="120" r="1.5" fill="#00ff41" opacity="0.4"/>
+    <circle cx="112" cy="120" r="1.5" fill="#00ff41" opacity="0.4"/>
+
+    <!-- Body outline glow -->
+    <path d="M68 210 L72 140 Q80 120 100 112 Q120 120 128 140 L132 210" stroke="#00ff41" stroke-width="1" fill="none" opacity="0.35"/>
+
+    <!-- Shoulders with angular tech pads -->
+    <path d="M64 132 Q55 125 50 112 Q60 118 68 128 Z" fill="#003300"/>
+    <path d="M50 112 L46 102 L54 110 Z" fill="#00ff41" opacity="0.3"/>
+    <path d="M136 132 Q145 125 150 112 Q140 118 132 128 Z" fill="#003300"/>
+    <path d="M150 112 L154 102 L146 110 Z" fill="#00ff41" opacity="0.3"/>
+
+    <!-- Neck -->
+    <rect x="90" y="88" width="20" height="20" rx="3" fill="#001400"/>
+    <line x1="100" y1="90" x2="100" y2="106" stroke="#00ff41" stroke-width="0.8" opacity="0.5"/>
+
+    <!-- Head - sleek digital form -->
+    <ellipse cx="100" cy="65" rx="28" ry="30" fill="#001800"/>
+    <ellipse cx="100" cy="64" rx="26" ry="27" fill="#002200"/>
+
+    <!-- Head circuit traces -->
+    <path d="M80 58 L85 65 L80 72" stroke="#00ff41" stroke-width="0.8" fill="none" opacity="0.3"/>
+    <path d="M120 58 L115 65 L120 72" stroke="#00ff41" stroke-width="0.8" fill="none" opacity="0.3"/>
+    <line x1="88" y1="52" x2="112" y2="52" stroke="#00ff41" stroke-width="0.6" opacity="0.25"/>
+
+    <!-- Visor - full face scan -->
+    <rect x="76" y="60" width="48" height="16" rx="4" fill="#000d00"/>
+    <rect x="78" y="62" width="44" height="12" rx="3" fill="#001a00"/>
+    <!-- Scan line inside visor -->
+    <rect x="78" y="67" width="44" height="1.5" fill="#00ff41" opacity="0.2"/>
+
+    <!-- Eyes - terminal cursor style -->
+    <rect x="83" y="64" width="12" height="8" rx="1" fill="#003300"/>
+    <rect x="105" y="64" width="12" height="8" rx="1" fill="#003300"/>
+    <rect x="85" y="66" width="8" height="4" rx="0.5" fill="#00ff41" filter="url(#sp_glow)"/>
+    <rect x="107" y="66" width="8" height="4" rx="0.5" fill="#00ff41" filter="url(#sp_glow)"/>
+    <!-- Cursor blink marks -->
+    <rect x="90" y="67" width="1.5" height="2" fill="#ccffcc" opacity="0.9"/>
+    <rect x="112" y="67" width="1.5" height="2" fill="#ccffcc" opacity="0.9"/>
+
+    <!-- Lower face mask -->
+    <path d="M80 78 Q90 86 100 87 Q110 86 120 78 Q112 83 100 84 Q88 83 80 78 Z" fill="#001400"/>
+    <!-- Breathing grid slits -->
+    <line x1="88" y1="81" x2="92" y2="81" stroke="#00ff41" stroke-width="0.8" opacity="0.4"/>
+    <line x1="95" y1="81" x2="105" y2="81" stroke="#00ff41" stroke-width="0.8" opacity="0.4"/>
+    <line x1="108" y1="81" x2="112" y2="81" stroke="#00ff41" stroke-width="0.8" opacity="0.4"/>
+    <line x1="89" y1="84" x2="92" y2="84" stroke="#00ff41" stroke-width="0.6" opacity="0.3"/>
+    <line x1="96" y1="84" x2="104" y2="84" stroke="#00ff41" stroke-width="0.6" opacity="0.3"/>
+    <line x1="108" y1="84" x2="111" y2="84" stroke="#00ff41" stroke-width="0.6" opacity="0.3"/>
+
+    <!-- Floating data shards -->
+    <rect x="42" y="78" width="8" height="3" rx="1" fill="#00ff41" opacity="0.2" filter="url(#sp_soft)"/>
+    <rect x="152" y="85" width="6" height="2" rx="1" fill="#00ff41" opacity="0.15" filter="url(#sp_soft)"/>
+    <rect x="38" y="105" width="5" height="2" rx="0.5" fill="#00ff41" opacity="0.12"/>
+    <rect x="158" y="100" width="7" height="2" rx="0.5" fill="#00ff41" opacity="0.15"/>
+
+    <!-- Name plate -->
+    <rect x="32" y="168" width="136" height="22" rx="2" fill="#000800" opacity="0.9"/>
+    <rect x="32" y="168" width="136" height="22" rx="2" fill="none" stroke="#00ff41" stroke-width="0.8" opacity="0.4"/>
+    <text x="100" y="183" font-family="monospace" font-size="11" font-weight="bold" fill="#00ff41" text-anchor="middle" letter-spacing="2">SPECTER</text>
+  </g>
+
+  <circle cx="100" cy="100" r="98" fill="none" stroke="#00ff41" stroke-width="1.5" opacity="0.5"/>
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#00ff41" stroke-width="0.4" opacity="0.2"/>
+</svg>

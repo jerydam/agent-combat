@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="ph_bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a1040"/>
+      <stop offset="100%" stop-color="#080510"/>
+    </radialGradient>
+    <radialGradient id="ph_glow" cx="50%" cy="40%" r="40%">
+      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="ph_blur">
+      <feGaussianBlur stdDeviation="2.5"/>
+    </filter>
+    <filter id="ph_glow_filter">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="ph_circle">
+      <circle cx="100" cy="100" r="98"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <circle cx="100" cy="100" r="100" fill="url(#ph_bg)"/>
+  <circle cx="100" cy="100" r="100" fill="url(#ph_glow)"/>
+
+  <g clip-path="url(#ph_circle)">
+    <!-- Ghostly wisps at bottom -->
+    <ellipse cx="100" cy="185" rx="60" ry="18" fill="#7c3aed" opacity="0.15" filter="url(#ph_blur)"/>
+    <ellipse cx="80" cy="195" rx="25" ry="8" fill="#7c3aed" opacity="0.1" filter="url(#ph_blur)"/>
+    <ellipse cx="120" cy="195" rx="20" ry="6" fill="#7c3aed" opacity="0.1" filter="url(#ph_blur)"/>
+
+    <!-- Cloak / body - flowing phantom shape -->
+    <path d="M55 210 Q60 140 70 120 Q80 105 100 100 Q120 105 130 120 Q140 140 145 210 Z" fill="#1e0a4e"/>
+    <path d="M60 210 Q68 148 78 128 Q88 112 100 108 Q112 112 122 128 Q132 148 140 210 Z" fill="#2d1566"/>
+
+    <!-- Cloak sheen -->
+    <path d="M85 108 Q90 115 88 140 Q87 155 85 170" stroke="#7c3aed" stroke-width="1" fill="none" opacity="0.5"/>
+
+    <!-- Floating robe wisps -->
+    <path d="M55 210 Q50 175 48 155 Q52 165 60 180 Q65 170 65 155 Q72 168 72 185" fill="#1e0a4e" opacity="0.8"/>
+    <path d="M145 210 Q150 175 152 155 Q148 165 140 180 Q135 170 135 155 Q128 168 128 185" fill="#1e0a4e" opacity="0.8"/>
+
+    <!-- Neck -->
+    <rect x="91" y="90" width="18" height="20" rx="4" fill="#c4b5fd" opacity="0.7"/>
+
+    <!-- Head - slightly transparent/ghostly -->
+    <ellipse cx="100" cy="72" rx="28" ry="32" fill="#2d1566"/>
+    <ellipse cx="100" cy="70" rx="26" ry="29" fill="#3b1f7a"/>
+
+    <!-- Hood shadows -->
+    <path d="M72 60 Q75 45 100 40 Q125 45 128 60 Q118 52 100 50 Q82 52 72 60 Z" fill="#1a0a3e"/>
+
+    <!-- Glowing hollow eyes -->
+    <ellipse cx="89" cy="68" rx="7" ry="5" fill="#0f0520"/>
+    <ellipse cx="111" cy="68" rx="7" ry="5" fill="#0f0520"/>
+    <ellipse cx="89" cy="68" rx="5" ry="3.5" fill="#7c3aed" filter="url(#ph_glow_filter)"/>
+    <ellipse cx="111" cy="68" rx="5" ry="3.5" fill="#7c3aed" filter="url(#ph_glow_filter)"/>
+    <!-- Eye inner bright -->
+    <ellipse cx="89" cy="68" rx="2" ry="1.5" fill="#c4b5fd"/>
+    <ellipse cx="111" cy="68" rx="2" ry="1.5" fill="#c4b5fd"/>
+
+    <!-- Ghostly mask lower face -->
+    <path d="M82 78 Q100 90 118 78 Q110 84 100 85 Q90 84 82 78 Z" fill="#1a0a3e" opacity="0.7"/>
+
+    <!-- Floating particles -->
+    <circle cx="62" cy="95" r="2" fill="#7c3aed" opacity="0.6" filter="url(#ph_blur)"/>
+    <circle cx="142" cy="88" r="1.5" fill="#7c3aed" opacity="0.5" filter="url(#ph_blur)"/>
+    <circle cx="68" cy="115" r="1" fill="#c4b5fd" opacity="0.4"/>
+    <circle cx="138" cy="110" r="1.5" fill="#c4b5fd" opacity="0.4"/>
+    <circle cx="55" cy="130" r="1" fill="#7c3aed" opacity="0.3"/>
+
+    <!-- Name plate -->
+    <rect x="30" y="168" width="140" height="22" rx="4" fill="#0f0520" opacity="0.7"/>
+    <text x="100" y="183" font-family="monospace" font-size="11" font-weight="bold" fill="#c4b5fd" text-anchor="middle" letter-spacing="2">PHANTOM</text>
+  </g>
+
+  <!-- Border ring with glow -->
+  <circle cx="100" cy="100" r="98" fill="none" stroke="#7c3aed" stroke-width="2" opacity="0.6"/>
+  <circle cx="100" cy="100" r="96" fill="none" stroke="#c4b5fd" stroke-width="0.5" opacity="0.3"/>
+</svg>

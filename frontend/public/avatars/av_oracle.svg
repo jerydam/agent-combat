@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="or_bg" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#2d0a2d"/>
+      <stop offset="100%" stop-color="#0d0010"/>
+    </radialGradient>
+    <radialGradient id="or_aura" cx="50%" cy="38%" r="42%">
+      <stop offset="0%" stop-color="#e879f9" stop-opacity="0.2"/>
+      <stop offset="60%" stop-color="#c026d3" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#c026d3" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="or_orb" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#f9a8d4"/>
+      <stop offset="50%" stop-color="#e879f9"/>
+      <stop offset="100%" stop-color="#a21caf"/>
+    </radialGradient>
+    <filter id="or_glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="or_soft">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+    <clipPath id="or_circle">
+      <circle cx="100" cy="100" r="98"/>
+    </clipPath>
+  </defs>
+
+  <circle cx="100" cy="100" r="100" fill="url(#or_bg)"/>
+  <circle cx="100" cy="100" r="100" fill="url(#or_aura)"/>
+
+  <g clip-path="url(#or_circle)">
+    <!-- Mystical orbit rings (faint) -->
+    <ellipse cx="100" cy="68" rx="55" ry="20" fill="none" stroke="#e879f9" stroke-width="0.6" opacity="0.15" transform="rotate(-20 100 68)"/>
+    <ellipse cx="100" cy="68" rx="62" ry="22" fill="none" stroke="#c026d3" stroke-width="0.4" opacity="0.1" transform="rotate(15 100 68)"/>
+
+    <!-- Flowing robe -->
+    <path d="M52 210 Q55 145 65 125 Q76 110 92 106 L100 104 L108 106 Q124 110 135 125 Q145 145 148 210 Z" fill="#1a0020"/>
+    <path d="M62 210 Q67 150 76 132 Q86 116 100 112 Q114 116 124 132 Q133 150 138 210 Z" fill="#2d0040"/>
+
+    <!-- Robe fold highlights -->
+    <path d="M88 112 Q86 140 84 168 Q88 148 90 168 Q92 142 94 168 Q94 140 96 112" stroke="#6b21a8" stroke-width="0.8" fill="none" opacity="0.5"/>
+    <path d="M112 112 Q114 140 116 168 Q112 148 110 168 Q108 142 106 168 Q106 140 104 112" stroke="#6b21a8" stroke-width="0.8" fill="none" opacity="0.4"/>
+
+    <!-- Mystical floating orb in left hand -->
+    <circle cx="52" cy="135" r="16" fill="#2d0040" opacity="0.6"/>
+    <circle cx="52" cy="135" r="12" fill="url(#or_orb)" opacity="0.8" filter="url(#or_soft)"/>
+    <circle cx="52" cy="135" r="8" fill="#f9a8d4" opacity="0.5" filter="url(#or_glow)"/>
+    <circle cx="52" cy="135" r="4" fill="#fdf4ff" filter="url(#or_glow)"/>
+    <!-- Orb sparkles -->
+    <circle cx="46" cy="128" r="1.5" fill="#f9a8d4" opacity="0.6"/>
+    <circle cx="60" cy="128" r="1" fill="#e879f9" opacity="0.5"/>
+    <circle cx="44" cy="140" r="1" fill="#f9a8d4" opacity="0.4"/>
+    <circle cx="62" cy="142" r="1.5" fill="#e879f9" opacity="0.5"/>
+
+    <!-- Hand holding orb -->
+    <path d="M44 148 Q48 142 52 140 Q56 142 60 148 Q56 152 52 153 Q48 152 44 148 Z" fill="#4a2060"/>
+
+    <!-- Right arm reaching out -->
+    <path d="M138 132 Q152 125 162 118 Q163 110 158 106 Q150 110 142 118 Z" fill="#2d0040"/>
+    <!-- Energy from right hand -->
+    <path d="M162 118 Q170 112 175 105" stroke="#e879f9" stroke-width="1.5" fill="none" opacity="0.5" filter="url(#or_soft)"/>
+    <circle cx="175" cy="105" r="3" fill="#e879f9" opacity="0.4" filter="url(#or_soft)"/>
+
+    <!-- Neck -->
+    <rect x="90" y="87" width="20" height="20" rx="4" fill="#2d0040"/>
+
+    <!-- Jewelry/necklace -->
+    <path d="M84 96 Q100 104 116 96" stroke="#f9a8d4" stroke-width="1" fill="none" opacity="0.7"/>
+    <circle cx="100" cy="104" r="3" fill="#e879f9" opacity="0.8" filter="url(#or_soft)"/>
+
+    <!-- Head -->
+    <ellipse cx="100" cy="64" rx="27" ry="29" fill="#2d0040"/>
+    <ellipse cx="100" cy="63" rx="24" ry="26" fill="#3b0052"/>
+
+    <!-- Ornate headpiece/crown -->
+    <path d="M75 52 Q76 44 82 38 L86 50 Q80 44 78 52 Z" fill="#6b21a8"/>
+    <circle cx="82" cy="38" r="3" fill="#e879f9" filter="url(#or_glow)"/>
+    <path d="M97 44 Q98 36 100 30 L102 36 Q100 30 100 44 Z" fill="#7e22ce"/>
+    <circle cx="100" cy="30" r="4" fill="#f9a8d4" filter="url(#or_glow)"/>
+    <path d="M125 52 Q124 44 118 38 L114 50 Q120 44 122 52 Z" fill="#6b21a8"/>
+    <circle cx="118" cy="38" r="3" fill="#e879f9" filter="url(#or_glow)"/>
+    <!-- Crown base band -->
+    <rect x="76" y="50" width="48" height="5" rx="2" fill="#4a0072"/>
+    <rect x="76" y="50" width="48" height="1.5" rx="1" fill="#a855f7" opacity="0.6"/>
+
+    <!-- Hair - flowing, dark with purple hints -->
+    <path d="M73 60 Q65 75 62 95 Q70 80 76 65 Z" fill="#1a0020"/>
+    <path d="M127 60 Q135 75 138 95 Q130 80 124 65 Z" fill="#1a0020"/>
+    <path d="M73 60 Q67 72 64 88" stroke="#6b21a8" stroke-width="0.8" fill="none" opacity="0.4"/>
+    <path d="M127 60 Q133 72 136 88" stroke="#6b21a8" stroke-width="0.8" fill="none" opacity="0.4"/>
+
+    <!-- Third eye mark on forehead -->
+    <ellipse cx="100" cy="54" rx="4" ry="2.5" fill="#0d0010"/>
+    <ellipse cx="100" cy="54" rx="3" ry="1.8" fill="#e879f9" filter="url(#or_glow)"/>
+    <circle cx="100" cy="54" r="1" fill="#fdf4ff"/>
+
+    <!-- Eyes - all-knowing, slightly alien -->
+    <ellipse cx="88" cy="66" rx="8" ry="5.5" fill="#0d0010"/>
+    <ellipse cx="112" cy="66" rx="8" ry="5.5" fill="#0d0010"/>
+    <ellipse cx="88" cy="66" rx="6" ry="4" fill="#a855f7" filter="url(#or_glow)"/>
+    <ellipse cx="112" cy="66" rx="6" ry="4" fill="#a855f7" filter="url(#or_glow)"/>
+    <!-- Iris detail -->
+    <ellipse cx="88" cy="66" rx="3.5" ry="2.5" fill="#7e22ce"/>
+    <ellipse cx="112" cy="66" rx="3.5" ry="2.5" fill="#7e22ce"/>
+    <!-- Pupil -->
+    <circle cx="88" cy="66" r="1.5" fill="#0d0010"/>
+    <circle cx="112" cy="66" r="1.5" fill="#0d0010"/>
+    <!-- Highlight -->
+    <circle cx="86.5" cy="64.5" r="1" fill="#fdf4ff" opacity="0.8"/>
+    <circle cx="110.5" cy="64.5" r="1" fill="#fdf4ff" opacity="0.8"/>
+
+    <!-- Serene closed-mouth expression -->
+    <path d="M92 78 Q100 82 108 78" stroke="#c084fc" stroke-width="1.2" fill="none" opacity="0.7"/>
+
+    <!-- Floating mystical particles -->
+    <circle cx="42" cy="70" r="2" fill="#e879f9" opacity="0.4" filter="url(#or_soft)"/>
+    <circle cx="158" cy="75" r="1.5" fill="#a855f7" opacity="0.5" filter="url(#or_soft)"/>
+    <circle cx="38" cy="100" r="1" fill="#f9a8d4" opacity="0.3"/>
+    <circle cx="163" cy="95" r="1.5" fill="#e879f9" opacity="0.35"/>
+    <circle cx="46" cy="160" r="1.5" fill="#c084fc" opacity="0.3" filter="url(#or_soft)"/>
+    <circle cx="156" cy="155" r="1" fill="#e879f9" opacity="0.25"/>
+
+    <!-- Name plate -->
+    <rect x="36" y="168" width="128" height="22" rx="4" fill="#0d0010" opacity="0.88"/>
+    <text x="100" y="183" font-family="monospace" font-size="11" font-weight="bold" fill="#e879f9" text-anchor="middle" letter-spacing="2">ORACLE</text>
+  </g>
+
+  <circle cx="100" cy="100" r="98" fill="none" stroke="#a855f7" stroke-width="2" opacity="0.6"/>
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#f9a8d4" stroke-width="0.5" opacity="0.25"/>
+</svg>

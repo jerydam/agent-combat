@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="tm_bg" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#0c2340"/>
+      <stop offset="100%" stop-color="#040d1a"/>
+    </radialGradient>
+    <radialGradient id="tm_storm" cx="50%" cy="35%" r="45%">
+      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.3"/>
+      <stop offset="70%" stop-color="#7dd3fc" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#7dd3fc" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="tm_glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="tm_soft">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+    <clipPath id="tm_circle">
+      <circle cx="100" cy="100" r="98"/>
+    </clipPath>
+  </defs>
+
+  <circle cx="100" cy="100" r="100" fill="url(#tm_bg)"/>
+  <circle cx="100" cy="100" r="100" fill="url(#tm_storm)"/>
+
+  <g clip-path="url(#tm_circle)">
+    <!-- Wind swirls in background -->
+    <path d="M20 80 Q50 60 80 80 Q110 100 140 80 Q170 60 185 75" stroke="#7dd3fc" stroke-width="0.8" fill="none" opacity="0.15"/>
+    <path d="M15 100 Q45 85 75 100 Q105 115 140 95 Q165 80 185 90" stroke="#7dd3fc" stroke-width="0.6" fill="none" opacity="0.1"/>
+    <path d="M20 120 Q55 108 85 122 Q115 136 148 118 Q168 106 185 112" stroke="#7dd3fc" stroke-width="0.5" fill="none" opacity="0.1"/>
+
+    <!-- Flowing scarf/wind tail -->
+    <path d="M128 115 Q155 95 170 70 Q165 85 150 105 Q165 90 172 65" stroke="#7dd3fc" stroke-width="1.5" fill="none" opacity="0.5" filter="url(#tm_soft)"/>
+    <path d="M125 118 Q152 100 168 78 Q162 92 148 110" stroke="#bae6fd" stroke-width="1" fill="none" opacity="0.3"/>
+
+    <!-- Body -->
+    <path d="M60 210 L65 135 Q74 118 90 110 L100 108 L110 110 Q126 118 135 135 L140 210 Z" fill="#0c2340"/>
+    <!-- Tunic / sleeveless vest -->
+    <path d="M75 140 Q80 125 100 118 Q120 125 125 140 Q115 133 100 130 Q85 133 75 140 Z" fill="#1e4d7a"/>
+    <!-- Belt -->
+    <rect x="75" y="148" width="50" height="7" rx="2" fill="#1e3a5f"/>
+    <rect x="97" y="146" width="6" height="10" rx="2" fill="#7dd3fc" opacity="0.7"/>
+
+    <!-- Wind energy around arms -->
+    <path d="M60 135 Q45 128 38 118 Q36 108 42 104" stroke="#7dd3fc" stroke-width="1.5" fill="none" opacity="0.6" filter="url(#tm_soft)"/>
+    <path d="M62 130 Q50 125 44 116 Q42 108 46 105" stroke="#bae6fd" stroke-width="1" fill="none" opacity="0.4"/>
+    <!-- Left arm -->
+    <path d="M65 135 Q50 130 42 118 Q40 108 46 104 Q54 108 60 118 Z" fill="#0f2d52"/>
+    <!-- Right arm -->
+    <path d="M135 135 Q150 130 158 118 Q160 108 154 104 Q146 108 140 118 Z" fill="#0f2d52"/>
+    <!-- Wind energy right arm -->
+    <path d="M140 135 Q155 128 162 118 Q164 108 158 104" stroke="#7dd3fc" stroke-width="1.5" fill="none" opacity="0.6" filter="url(#tm_soft)"/>
+
+    <!-- Neck -->
+    <rect x="90" y="90" width="20" height="20" rx="4" fill="#1a3d60"/>
+
+    <!-- Lightning bolt on chest -->
+    <path d="M104 120 L98 134 L103 134 L97 148 L108 130 L103 130 L108 120 Z" fill="#7dd3fc" opacity="0.8" filter="url(#tm_soft)"/>
+    <path d="M104 120 L98 134 L103 134 L97 148 L108 130 L103 130 L108 120 Z" fill="#e0f2fe" opacity="0.4"/>
+
+    <!-- Head -->
+    <ellipse cx="100" cy="65" rx="27" ry="29" fill="#0f2d52"/>
+    <ellipse cx="100" cy="64" rx="24" ry="26" fill="#1a4070"/>
+
+    <!-- Storm hair - wild and wind-blown -->
+    <path d="M76 52 Q72 38 78 28 Q84 40 82 52 Z" fill="#7dd3fc" opacity="0.7"/>
+    <path d="M83 46 Q80 32 86 22 Q90 34 88 46 Z" fill="#bae6fd" opacity="0.8"/>
+    <path d="M92 42 Q92 28 98 18 Q101 30 98 44 Z" fill="#7dd3fc" opacity="0.9"/>
+    <path d="M107 44 Q110 30 115 22 Q116 34 112 46 Z" fill="#bae6fd" opacity="0.7"/>
+    <path d="M116 50 Q122 36 126 28 Q126 40 120 52 Z" fill="#7dd3fc" opacity="0.6"/>
+    <!-- Hair glow -->
+    <path d="M88 48 Q92 32 100 22" stroke="#e0f2fe" stroke-width="1" fill="none" opacity="0.4" filter="url(#tm_soft)"/>
+
+    <!-- Eyes - electric blue -->
+    <ellipse cx="89" cy="65" rx="8" ry="5.5" fill="#040d1a"/>
+    <ellipse cx="111" cy="65" rx="8" ry="5.5" fill="#040d1a"/>
+    <ellipse cx="89" cy="65" rx="6" ry="4" fill="#0ea5e9" filter="url(#tm_glow)"/>
+    <ellipse cx="111" cy="65" rx="6" ry="4" fill="#0ea5e9" filter="url(#tm_glow)"/>
+    <ellipse cx="89" cy="65" rx="2.5" ry="1.8" fill="#e0f2fe"/>
+    <ellipse cx="111" cy="65" rx="2.5" ry="1.8" fill="#e0f2fe"/>
+
+    <!-- Brow - intense/focused -->
+    <path d="M80 59 Q85 56 92 58" stroke="#7dd3fc" stroke-width="1.5" fill="none" opacity="0.7"/>
+    <path d="M120 59 Q115 56 108 58" stroke="#7dd3fc" stroke-width="1.5" fill="none" opacity="0.7"/>
+
+    <!-- Nose/mouth - determined expression -->
+    <line x1="100" y1="70" x2="100" y2="76" stroke="#7dd3fc" stroke-width="0.8" opacity="0.4"/>
+    <path d="M91 80 Q100 84 109 80" stroke="#7dd3fc" stroke-width="1.2" fill="none" opacity="0.6"/>
+
+    <!-- Earrings / storm ornaments -->
+    <circle cx="73" cy="68" r="2.5" fill="#0ea5e9" filter="url(#tm_glow)"/>
+    <line x1="73" y1="71" x2="73" y2="76" stroke="#7dd3fc" stroke-width="1" opacity="0.7"/>
+    <circle cx="73" cy="77" r="1.5" fill="#7dd3fc" opacity="0.6"/>
+    <circle cx="127" cy="68" r="2.5" fill="#0ea5e9" filter="url(#tm_glow)"/>
+    <line x1="127" y1="71" x2="127" y2="76" stroke="#7dd3fc" stroke-width="1" opacity="0.7"/>
+    <circle cx="127" cy="77" r="1.5" fill="#7dd3fc" opacity="0.6"/>
+
+    <!-- Static sparks -->
+    <line x1="48" y1="82" x2="56" y2="78" stroke="#7dd3fc" stroke-width="0.8" opacity="0.5"/>
+    <line x1="52" y1="78" x2="56" y2="74" stroke="#bae6fd" stroke-width="0.6" opacity="0.4"/>
+    <line x1="150" y1="78" x2="158" y2="82" stroke="#7dd3fc" stroke-width="0.8" opacity="0.5"/>
+    <line x1="150" y1="82" x2="154" y2="86" stroke="#bae6fd" stroke-width="0.6" opacity="0.4"/>
+    <circle cx="52" cy="78" r="1.5" fill="#7dd3fc" opacity="0.5" filter="url(#tm_soft)"/>
+    <circle cx="152" cy="80" r="1.5" fill="#7dd3fc" opacity="0.5" filter="url(#tm_soft)"/>
+
+    <!-- Name plate -->
+    <rect x="32" y="168" width="136" height="22" rx="4" fill="#040d1a" opacity="0.85"/>
+    <text x="100" y="183" font-family="monospace" font-size="11" font-weight="bold" fill="#7dd3fc" text-anchor="middle" letter-spacing="2">TEMPEST</text>
+  </g>
+
+  <circle cx="100" cy="100" r="98" fill="none" stroke="#0ea5e9" stroke-width="2" opacity="0.6"/>
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#bae6fd" stroke-width="0.5" opacity="0.2"/>
+</svg>
