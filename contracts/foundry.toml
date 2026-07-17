@@ -1,0 +1,11 @@
+[profile.default]
+src = "contracts"          # our .sol files live in contracts/, not src/
+out = "out"
+libs = ["lib", "node_modules"]
+solc_version = "0.8.28"
+optimizer = true
+optimizer_runs = 200
+
+[rpc_endpoints]
+botchain = "${BOTCHAIN_RPC}"
+botchain_testnet = "${BOTCHAIN_TESTNET_RPC}"
