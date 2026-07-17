@@ -1,0 +1,151 @@
+# ────────────────────────────────────────────────────────────────
+#  Kakushō-protocol — monorepo .gitignore
+# ────────────────────────────────────────────────────────────────
+
+# ── OS ──────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── Editors ─────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ════════════════════════════════════════════════════════════════
+#  BACKEND  (Python / FastAPI)
+# ════════════════════════════════════════════════════════════════
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.py[cod]
+backend/**/*$py.class
+backend/.venv/
+backend/venv/
+backend/env/
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/*.egg-info/
+backend/dist/
+backend/build/
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/htmlcov/
+backend/.coverage
+backend/coverage.xml
+backend/logs/
+backend/*.log
+
+# ════════════════════════════════════════════════════════════════
+#  CIRCUITS  (Circom / Node)
+# ════════════════════════════════════════════════════════════════
+circuits/node_modules/
+circuits/build/
+circuits/**/*.wasm
+circuits/**/*.zkey
+circuits/**/*.ptau
+circuits/**/*.r1cs
+circuits/**/*.sym
+circuits/**/*.wtns
+circuits/**/verification_key.json
+# Keep pre-built tree output committed
+!circuits/restricted_tree.json
+circuits/.env
+circuits/.env.*
+!circuits/.env.example
+
+# ════════════════════════════════════════════════════════════════
+#  CONTRACTS  (Rust / Soroban)
+# ════════════════════════════════════════════════════════════════
+contracts/target/
+contracts/**/*.wasm
+# Keep compiled contract artifacts if you want reproducible deploys
+# !contracts/target/wasm32-unknown-unknown/release/*.wasm
+contracts/.env
+contracts/.env.*
+!contracts/.env.example
+contracts/Cargo.lock
+# Uncomment the line above ONLY if contracts is a library crate.
+# For binary/workspace keep Cargo.lock committed.
+
+# ════════════════════════════════════════════════════════════════
+#  FRONTEND  (Next.js / TypeScript)
+# ════════════════════════════════════════════════════════════════
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+!frontend/.env.production.example
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/.vercel/
+frontend/.turbo/
+frontend/coverage/
+frontend/.eslintcache
+frontend/tsconfig.tsbuildinfo
+frontend/pnpm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+# Keep pre-built restricted tree committed
+!frontend/public/restricted_tree.json
+
+# ════════════════════════════════════════════════════════════════
+#  SDK  (TypeScript / Node)
+# ════════════════════════════════════════════════════════════════
+sdk/node_modules/
+sdk/dist/
+sdk/build/
+sdk/.env
+sdk/.env.*
+!sdk/.env.example
+sdk/coverage/
+sdk/.eslintcache
+sdk/tsconfig.tsbuildinfo
+sdk/*.tgz
+
+# ════════════════════════════════════════════════════════════════
+#  DOCS
+# ════════════════════════════════════════════════════════════════
+docs/node_modules/
+docs/.docusaurus/
+docs/build/
+docs/.env
+docs/.env.*
+!docs/.env.example
+
+# ════════════════════════════════════════════════════════════════
+#  ROOT
+# ════════════════════════════════════════════════════════════════
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+*.lock
+!package-lock.json
+!pnpm-lock.yaml
+!yarn.lock
+.turbo/
+.cache/
+tmp/
+temp/
