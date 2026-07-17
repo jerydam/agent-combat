@@ -149,6 +149,22 @@ CATALOG: list[ItemDef] = [
     ItemDef("av_monk", "skin", "Monk", "A hundred parries a day", 200),
     ItemDef("av_cyber", "skin", "Cyber Duelist", "Neon augmented fighter", 300),
     ItemDef("av_champion", "skin", "Champion", "Golden crown of the arena", 500),
+    # ---- new additions pack (mid-high tier) ----
+    ItemDef("av_phantom",   "skin", "Phantom",   "Purple void ghost. Strikes from the abyss.",             1500),
+    ItemDef("av_berserker", "skin", "Berserker", "Blazing orange rage fighter. High-ATK playstyle.",       1500),
+    ItemDef("av_warlord",   "skin", "Warlord",   "Gold-trimmed armored commander. Prestige tournament feel.", 2000),
+    ItemDef("av_specter",   "skin", "Specter",   "Neon-green matrix hacker. High-INT tactical mind.",      1800),
+    ItemDef("av_tempest",   "skin", "Tempest",   "Cyan lightning elemental. Built for pure speed.",        1800),
+    ItemDef("av_ironclad",  "skin", "Ironclad",  "Silver/gunmetal tank. DEF-heavy and immovable.",         2000),
+    ItemDef("av_oracle",    "skin", "Oracle",    "Purple psychic seer. Sees your next move already.",      2000),
+    ItemDef("av_ranger_red",  "skin", "Red Ranger",  "Bold sentai front-liner. Aggressive and fearless.",         2500),
+    ItemDef("av_ranger_blue", "skin", "Blue Ranger",  "Cool-headed sentai tactician. Calm under pressure.",        2500),
+    ItemDef("av_ranger_gold", "skin", "Gold Ranger",  "Elite prestige variant. Reserved for tournament legends.",  4000),
+    ItemDef("av_blaze",       "skin", "Blaze",        "Red-hot flame hero. Burns brighter than the rest.",         3000),
+    ItemDef("av_nova",        "skin", "Nova",         "Cosmic energy warrior. Tactical and unstoppable.",          3500),
+    ItemDef("av_volt",        "skin", "Volt",         "Blue/yellow electric speedster. Lightning reflexes.",       3000),
+    ItemDef("av_titan",       "skin", "Titan",        "Hulking green tank. Immovable. Unbreakable.",               3500),
+
     # ---- boosts (on-chain, permanent) ----
     ItemDef("boost_str", "boost", "Strength Serum", "+5 ATK on-chain", 250, boost=(5, 0, 0, 0)),
     ItemDef("boost_grit", "boost", "Grit Serum", "+5 DEF on-chain", 250, boost=(0, 5, 0, 0)),

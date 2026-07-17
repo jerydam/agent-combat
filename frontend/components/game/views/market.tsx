@@ -231,11 +231,6 @@ export function MarketView() {
           );
         })}
       </div>
-      {tab === 'skin' && (
-        <p className="text-center text-xs text-muted-foreground">
-          Want more avatars? Drop images into <code>public/avatars/</code> and register them in <code>lib/avatars.ts</code> — see the file for instructions.
-        </p>
-      )}
     </div>
   );
 }
