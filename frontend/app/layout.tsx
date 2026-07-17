@@ -35,9 +35,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <head>
-        <meta name="talentapp:project_verification" content="2aa7a19b3e43e2a67c598c51b4b5eb4275726462455b8d3e711fd89a5e47506cfde0bb7de2083ecb2bcb824610e6c656879a473151afb30e0983f67c2619fa34" />
-      </head>
       <body
         className={`${orbitron.variable} ${rajdhani.variable} font-body antialiased`}
       >
