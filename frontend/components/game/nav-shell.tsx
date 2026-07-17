@@ -46,12 +46,15 @@ export function NavShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-border/60 glass">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <img
+            
+            <div className="text-left leading-none">
+              <img
               src="/logo.png"
               alt="Agent Combat"
               className="h-10 w-10 drop-shadow-[0_0_12px_rgba(20,184,166,0.4)]"
               draggable={false}
             />
+            </div>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
