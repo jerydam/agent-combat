@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # Listener
     poll_interval_seconds: float = 2.0
 
-    cors_origins: str = "https://agent-combat.vercel.app"
+    cors_origins: str = "https://www.agentcombat.xyz"
 
     class Config:
         env_file = ".env"
