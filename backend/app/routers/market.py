@@ -211,7 +211,7 @@ async def equip(body: EquipBody, db: AsyncSession = Depends(get_db)):
                 select(InventoryItem).where(
                     InventoryItem.wallet == body.wallet.lower(),
                     InventoryItem.item_id == item.id,
-                )
+                ).limit(1)
             )
         ).scalar_one_or_none()
         if not owned:
