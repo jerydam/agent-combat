@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .chain.listener import run_listener
 from .config import get_settings
@@ -25,9 +26,26 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Agent Arena API", version="0.1.0", lifespan=lifespan)
 
+import logging as _logging
+
+_err_log = _logging.getLogger("arena.errors")
+
+
+@app.middleware("http")
+async def _catch_unhandled(request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:
+        _err_log.exception("Unhandled error on %s %s",
+                           request.method, request.url.path)
+        return JSONResponse(status_code=500,
+                            content={"detail": "Internal server error"})
+
+
+# added last => outermost => decorates the catcher's responses too
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_settings().cors_origins.split(","),
+    allow_origins=[o.strip() for o in get_settings().cors_origins.split(",") if o.strip()],
     allow_methods=["*"],
     allow_headers=["*"],
 )
