@@ -29,6 +29,7 @@ from ..engine.league import (compute_standings, generate_fixtures,
                              standings_hash)
 from ..engine.simulator import simulate
 from ..engine.tournament import bracket_hash, run_tournament
+from ..market.catalog import ITEM_BY_ID
 from ..models import (AgentCache, Battle, Fixture, InventoryItem,
                       LeagueRecord, SoloGame, TournamentRecord)
 from .client import get_contracts, get_w3
@@ -421,6 +422,41 @@ async def sync_minted_agents(nft, from_block: int, to_block: int) -> None:
         await db.commit()
 
 
+async def _verify_game_server(w3: Web3, arena, solo) -> None:
+    """Loud, one-time startup check: the game-server private key MUST
+    derive the SAME address the contracts trust, or every submitResult
+    call reverts NotGameServer/onlyGameServer — invisibly, since the
+    caller only sees a generic revert. This turns that into an
+    unmissable log line instead of a silently-eaten exception later.
+    """
+    s = get_settings()
+    if not s.game_server_private_key:
+        log.warning("GAME_SERVER_PRIVATE_KEY not set — no on-chain results can be submitted")
+        return
+    signer = Account.from_key(s.game_server_private_key).address
+
+    async def _check(name: str, contract) -> None:
+        if contract is None:
+            return
+        try:
+            onchain = contract.functions.gameServer().call()
+        except Exception:
+            return  # older BattleArena ABI has no gameServer() getter — skip
+        if onchain.lower() != signer.lower():
+            log.critical(
+                "%s.gameServer() = %s but GAME_SERVER_PRIVATE_KEY signs as %s "
+                "— every submitResult on %s WILL revert (NotGameServer) until "
+                "these match. Either redeploy %s with the right constructor "
+                "arg, or call setGameServer(%s) as the contract owner.",
+                name, onchain, signer, name, name, signer,
+            )
+        else:
+            log.info("%s.gameServer() matches signer %s ✔", name, signer)
+
+    await _check("SoloArena", solo)
+    await _check("BattleArena", arena)
+
+
 async def run_listener() -> None:
     s = get_settings()
     if not (s.rpc_url and s.battle_arena_address and s.agent_nft_address):
@@ -429,6 +465,7 @@ async def run_listener() -> None:
 
     w3 = get_w3()
     nft, arena, tournament, league, solo, shop = get_contracts(w3)
+    await _verify_game_server(w3, arena, solo)
     last_block = w3.eth.block_number
 
     log.info("Listener started at block %s", last_block)
@@ -484,15 +521,39 @@ async def run_listener() -> None:
                     for ev in shop.events.ItemPurchased().get_logs(
                         from_block=frm, to_block=to
                     ):
+                        buyer = ev["args"]["buyer"].lower()
+                        item_id = ev["args"]["itemId"]
+                        catalog_item = ITEM_BY_ID.get(item_id)
                         async with SessionLocal() as db:
+                            # Skins/powers are one-per-wallet (same rule as
+                            # /market/redeem's points path) — a purchase()
+                            # tx on-chain can't be "undone", but we must
+                            # not grant a second copy of the same skin/
+                            # power just because the buyer paid twice.
+                            # Boosts are consumable and stack freely.
+                            dup = False
+                            if catalog_item is not None and catalog_item.kind != "boost":
+                                existing = (
+                                    await db.execute(
+                                        select(InventoryItem).where(
+                                            InventoryItem.wallet == buyer,
+                                            InventoryItem.item_id == item_id,
+                                        ).limit(1)
+                                    )
+                                ).scalars().first()
+                                dup = existing is not None
+                            if dup:
+                                log.warning(
+                                    "Shop purchase for %s already owned by %s — "
+                                    "refund needed, not granting a duplicate",
+                                    item_id, buyer,
+                                )
+                                continue
                             db.add(InventoryItem(
-                                wallet=ev["args"]["buyer"].lower(),
-                                item_id=ev["args"]["itemId"],
-                                source="bot",
+                                wallet=buyer, item_id=item_id, source="bot",
                             ))
                             await db.commit()
-                        log.info("Shop purchase granted: %s -> %s",
-                                 ev["args"]["itemId"], ev["args"]["buyer"])
+                        log.info("Shop purchase granted: %s -> %s", item_id, buyer)
 
                 if tournament is not None:
                     for ev in tournament.events.TournamentStarted().get_logs(

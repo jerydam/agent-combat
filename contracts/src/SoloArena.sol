@@ -1,50 +1,50 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-
+/// @title SoloArena — stake escrow for live Agent Combat fights
+///
+/// Flow:
+///   1. Player calls play(agentId, botId) with BOT attached. botId is a
+///      pure reference — NOT validated against any registry; the real
+///      opponent is the game server's live AI, so no house bots need to
+///      be registered. agentId MUST be owned by msg.sender (checked
+///      against AgentNFT.ownerOf).
+///   2. Backend indexes SoloPlayed, the player fights in real time.
+///   3. The game server submits the live result: win pays PAYOUT_NUM /
+///      PAYOUT_DEN (1.8x) from stake + house bankroll; loss keeps the
+///      stake in the house.
+///   4. If the server never resolves (outage), the player can reclaim
+///      their full stake after RECLAIM_AFTER — funds can never be stuck.
+///
+/// ABI compatibility: SoloPlayed's indexed layout (gameId, agentId,
+/// botId indexed; player/stake/seed in data, stake as uint128) matches
+/// the app's existing SOLO_ARENA_ABI / SOLO_ABI exactly, and play() /
+/// submitResult() keep their original signatures — so the frontend and
+/// backend need no ABI changes, only this contract's new address.
+///
+/// Solvency: every accepted stake reserves its potential payout, so the
+/// house can't take bets it can't pay and the owner can't withdraw funds
+/// backing pending games.
 interface IAgentNFT {
     function ownerOf(uint256 tokenId) external view returns (address);
-    function recordBattle(uint256 tokenId, bool won, uint64 xpGained) external;
 }
 
-/// @title SoloArena — player vs house bots, free or staked
-/// @notice Free play: stake 0, instant, XP only. Staked play: beat the bot
-///         to win stake * multiplier (default 1.8x) from the house vault.
-///         The vault reserves liability at play time, so a win can never
-///         be unpayable. Seeds fix on-chain at play; results are engine-
-///         simulated and signer-verified like every other mode.
-contract SoloArena is Ownable, ReentrancyGuard {
-    enum GameStatus { None, Pending, Resolved, Refunded }
+contract SoloArena {
+    // ---------------------------------------------------------- errors
+    error NotOwner();
+    error NotGameServer();
+    error NotAgentOwner();
+    error ZeroStake();
+    error StakeTooLarge(uint256 maxStake);
+    error GameNotPending();
+    error NotYourGame();
+    error TooEarlyToReclaim(uint256 reclaimableAt);
+    error TransferFailed();
+    error InsufficientFreeBalance();
 
-    struct Game {
-        uint256 agentId;
-        uint256 botId;
-        address player;
-        uint128 stake;
-        uint256 seed;
-        uint64 createdAt;
-        GameStatus status;
-        bool playerWon;
-    }
-
-    IAgentNFT public immutable agentNFT;
-    address public gameServer;
-
-    uint16 public winMultiplierBps = 18_000; // 1.8x stake on a win
-    uint128 public maxStake = 100 ether;     // in BOT
-    uint256 public reservedLiability;        // vault BOT promised to pending games
-
-    uint256 public nextGameId = 1;
-    uint64 public constant RESULT_TIMEOUT = 1 hours;
-    uint64 public constant WIN_XP = 100;
-    uint64 public constant LOSS_XP = 25;
-
-    mapping(uint256 => Game) public games;
-    mapping(uint256 => bool) public isBot; // house agents
-
-    event BotSet(uint256 indexed agentId, bool enabled);
+    // ---------------------------------------------------------- events
+    // Matches the existing SOLO_ARENA_ABI / SOLO_ABI: gameId, agentId,
+    // botId indexed; player, stake (uint128), seed in the log data.
     event SoloPlayed(
         uint256 indexed gameId,
         uint256 indexed agentId,
@@ -54,143 +54,202 @@ contract SoloArena is Ownable, ReentrancyGuard {
         uint256 seed
     );
     event SoloResolved(
-        uint256 indexed gameId, bool playerWon, bytes32 movesHash, uint256 payout
+        uint256 indexed gameId,
+        bool playerWon,
+        uint256 payout,
+        bytes32 movesHash
     );
-    event SoloRefunded(uint256 indexed gameId);
-    event VaultFunded(uint256 amount);
-    event VaultWithdrawn(uint256 amount);
+    event SoloReclaimed(uint256 indexed gameId, address indexed player, uint256 stake);
+    event GameServerChanged(address indexed gameServer);
+    event HouseFunded(address indexed from, uint256 amount);
+    event HouseWithdrawn(address indexed to, uint256 amount);
 
-    error NotAgentOwner();
-    error NotABot();
-    error StakeTooHigh();
-    error VaultCannotCover();
-    error BadStatus();
-    error NotGameServer();
-    error TimeoutNotReached();
-    error InsufficientFreeVault();
-    error TransferFailed();
+    // ---------------------------------------------------------- config
+    uint256 public constant PAYOUT_NUM = 18; // win pays 1.8x the stake
+    uint256 public constant PAYOUT_DEN = 10;
+    uint256 public constant RECLAIM_AFTER = 1 hours;
 
-    constructor(
-        address nft,
-        address server
-    ) Ownable(msg.sender) {
-        agentNFT = IAgentNFT(nft);
-        gameServer = server;
+    address public owner;
+    address public gameServer;
+    IAgentNFT public immutable agentNFT;
+
+    // ----------------------------------------------------------- state
+    enum Status { None, Pending, Resolved, Reclaimed }
+
+    struct Game {
+        address player;
+        uint256 agentId;
+        uint256 botId;      // reference only, never validated
+        uint128 stake;
+        uint64 createdAt;
+        Status status;
+        bool playerWon;
+        bytes32 movesHash;
     }
 
-    // ---------------------------------------------------------------- admin
+    uint256 public nextGameId = 1;
+    mapping(uint256 => Game) public games;
 
-    function setGameServer(address s) external onlyOwner { gameServer = s; }
+    /// Total potential payouts of all pending games. Contract balance
+    /// minus this is the "free" bankroll available for new bets or
+    /// owner withdrawal.
+    uint256 public reserved;
 
-    function setBot(uint256 agentId, bool enabled) external onlyOwner {
-        isBot[agentId] = enabled;
-        emit BotSet(agentId, enabled);
+    bool private _entered;
+
+    // ------------------------------------------------------- modifiers
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
     }
 
-    function setParams(uint16 multiplierBps, uint128 newMaxStake) external onlyOwner {
-        require(multiplierBps >= 10_000 && multiplierBps <= 30_000, "bad multiplier");
-        winMultiplierBps = multiplierBps;
-        maxStake = newMaxStake;
+    modifier onlyGameServer() {
+        if (msg.sender != gameServer) revert NotGameServer();
+        _;
     }
 
-    function fundVault() external payable onlyOwner {
-        emit VaultFunded(msg.value);
+    modifier nonReentrant() {
+        require(!_entered, "reentrancy");
+        _entered = true;
+        _;
+        _entered = false;
     }
 
-    function withdrawVault(uint256 amount) external onlyOwner nonReentrant {
-        if (address(this).balance - reservedLiability < amount) {
-            revert InsufficientFreeVault();
-        }
-        _pay(owner(), amount);
-        emit VaultWithdrawn(amount);
+    /// Matches Deploy.s.sol's `new SoloArena(address(nft), gameServer)`.
+    constructor(address _agentNFT, address _gameServer) {
+        owner = msg.sender;
+        agentNFT = IAgentNFT(_agentNFT);
+        gameServer = _gameServer;
+        emit GameServerChanged(_gameServer);
     }
 
-    // ----------------------------------------------------------------- play
-
-    function play(
-        uint256 agentId,
-        uint256 botId
-    ) external payable returns (uint256 gameId) {
+    // ---------------------------------------------------------- player
+    /// Stake on your next live fight. agentId must be yours. botId is a
+    /// reference the backend echoes back; nothing on-chain checks it —
+    /// no house bot needs to be registered anywhere.
+    function play(uint256 agentId, uint256 botId)
+        external
+        payable
+        returns (uint256 gameId)
+    {
         if (agentNFT.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
-        if (!isBot[botId]) revert NotABot();
-        if (msg.value > maxStake) revert StakeTooHigh();
+        if (msg.value == 0) revert ZeroStake();
+        require(msg.value <= type(uint128).max, "stake too large for uint128");
 
-        uint256 potentialPayout = 0;
-        if (msg.value > 0) {
-            potentialPayout = (msg.value * winMultiplierBps) / 10_000;
-            // vault (minus already-promised payouts, minus this stake which
-            // just arrived) must cover the win
-            if (
-                address(this).balance - msg.value - reservedLiability + msg.value
-                    < potentialPayout
-            ) revert VaultCannotCover();
-            reservedLiability += potentialPayout;
+        // House must be able to cover the win payout beyond the stake
+        // itself: extra needed = stake * 0.8.
+        uint256 extraNeeded = (msg.value * (PAYOUT_NUM - PAYOUT_DEN)) / PAYOUT_DEN;
+        uint256 free = address(this).balance - reserved - msg.value;
+        if (extraNeeded > free) {
+            // biggest stake the current bankroll supports
+            revert StakeTooLarge((free * PAYOUT_DEN) / (PAYOUT_NUM - PAYOUT_DEN));
         }
 
         gameId = nextGameId++;
-        uint256 seed = uint256(
-            keccak256(abi.encodePacked(block.prevrandao, gameId, agentId, botId))
-        );
         games[gameId] = Game({
+            player: msg.sender,
             agentId: agentId,
             botId: botId,
-            player: msg.sender,
             stake: uint128(msg.value),
-            seed: seed,
             createdAt: uint64(block.timestamp),
-            status: GameStatus.Pending,
-            playerWon: false
+            status: Status.Pending,
+            playerWon: false,
+            movesHash: bytes32(0)
         });
+        reserved += msg.value + extraNeeded;
 
+        uint256 seed = uint256(
+            keccak256(abi.encodePacked(blockhash(block.number - 1), msg.sender, gameId))
+        );
         emit SoloPlayed(gameId, agentId, botId, msg.sender, uint128(msg.value), seed);
     }
 
-    function submitResult(
-        uint256 gameId,
-        bool playerWon,
-        bytes32 movesHash
-    ) external nonReentrant {
-        if (msg.sender != gameServer) revert NotGameServer();
+    /// Refund path if the game server never resolves the fight.
+    function reclaim(uint256 gameId) external nonReentrant {
         Game storage g = games[gameId];
-        if (g.status != GameStatus.Pending) revert BadStatus();
+        if (g.status != Status.Pending) revert GameNotPending();
+        if (g.player != msg.sender) revert NotYourGame();
+        uint256 readyAt = uint256(g.createdAt) + RECLAIM_AFTER;
+        if (block.timestamp < readyAt) revert TooEarlyToReclaim(readyAt);
 
-        g.status = GameStatus.Resolved;
+        g.status = Status.Reclaimed;
+        uint256 stake = g.stake;
+        reserved -= stake + (stake * (PAYOUT_NUM - PAYOUT_DEN)) / PAYOUT_DEN;
+
+        (bool ok, ) = msg.sender.call{value: stake}("");
+        if (!ok) revert TransferFailed();
+        emit SoloReclaimed(gameId, msg.sender, stake);
+    }
+
+    // ----------------------------------------------------- game server
+    /// Called by the backend with the LIVE fight's outcome.
+    function submitResult(uint256 gameId, bool playerWon, bytes32 movesHash)
+        external
+        onlyGameServer
+        nonReentrant
+    {
+        Game storage g = games[gameId];
+        if (g.status != Status.Pending) revert GameNotPending();
+
+        g.status = Status.Resolved;
         g.playerWon = playerWon;
+        g.movesHash = movesHash;
 
-        agentNFT.recordBattle(g.agentId, playerWon, playerWon ? WIN_XP : LOSS_XP);
-        agentNFT.recordBattle(g.botId, !playerWon, playerWon ? LOSS_XP : WIN_XP);
+        uint256 stake = g.stake;
+        reserved -= stake + (stake * (PAYOUT_NUM - PAYOUT_DEN)) / PAYOUT_DEN;
 
         uint256 payout = 0;
-        if (g.stake > 0) {
-            uint256 promised = (uint256(g.stake) * winMultiplierBps) / 10_000;
-            reservedLiability -= promised;
-            if (playerWon) {
-                payout = promised;
-                _pay(g.player, payout);
-            }
-            // on loss the stake simply stays in the vault
+        if (playerWon) {
+            payout = (stake * PAYOUT_NUM) / PAYOUT_DEN;
+            (bool ok, ) = g.player.call{value: payout}("");
+            if (!ok) revert TransferFailed();
         }
-        emit SoloResolved(gameId, playerWon, movesHash, payout);
+        emit SoloResolved(gameId, playerWon, payout, movesHash);
     }
 
-    /// @notice Refund a staked game the backend never resolved.
-    function refundStale(uint256 gameId) external nonReentrant {
-        Game storage g = games[gameId];
-        if (g.status != GameStatus.Pending) revert BadStatus();
-        if (block.timestamp < g.createdAt + RESULT_TIMEOUT) revert TimeoutNotReached();
-
-        g.status = GameStatus.Refunded;
-        if (g.stake > 0) {
-            reservedLiability -= (uint256(g.stake) * winMultiplierBps) / 10_000;
-            _pay(g.player, g.stake);
-        }
-        emit SoloRefunded(gameId);
+    // ------------------------------------------------------------ admin
+    function setGameServer(address _gameServer) external onlyOwner {
+        gameServer = _gameServer;
+        emit GameServerChanged(_gameServer);
     }
 
-    receive() external payable {} // losses / direct funding land in the vault
+    function fundHouse() external payable {
+        emit HouseFunded(msg.sender, msg.value);
+    }
 
-    function _pay(address to, uint256 amount) private {
-        (bool ok, ) = to.call{value: amount}("");
+    receive() external payable {
+        emit HouseFunded(msg.sender, msg.value);
+    }
+
+    /// Withdraw profits — only funds not backing pending games.
+    function withdrawHouse(uint256 amount) external onlyOwner nonReentrant {
+        if (amount > address(this).balance - reserved) {
+            revert InsufficientFreeBalance();
+        }
+        (bool ok, ) = owner.call{value: amount}("");
         if (!ok) revert TransferFailed();
+        emit HouseWithdrawn(owner, amount);
+    }
+
+    // ------------------------------------------------------------ views
+    function maxStake() external view returns (uint256) {
+        uint256 free = address(this).balance - reserved;
+        return (free * PAYOUT_DEN) / (PAYOUT_NUM - PAYOUT_DEN);
+    }
+
+    function getGame(uint256 gameId)
+        external
+        view
+        returns (
+            address player,
+            uint256 agentId,
+            uint256 botId,
+            uint256 stake,
+            uint8 status,
+            bool playerWon
+        )
+    {
+        Game storage g = games[gameId];
+        return (g.player, g.agentId, g.botId, g.stake, uint8(g.status), g.playerWon);
     }
 }

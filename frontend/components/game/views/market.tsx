@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '@/lib/wallet';
 import { api } from '@/lib/api';
 import { writeContract } from '@/lib/tx';
-import { getWBotPrice, usdToBotWei } from '@/lib/getWBotPrice';
+import { usdToBotWei } from '@/lib/getWBotPrice';
 import { AVATARS } from '@/lib/avatars';
 import type { Agent } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -56,31 +56,19 @@ export function MarketView() {
   const [busy, setBusy] = useState<string | null>(null);
   const [botUsd, setBotUsd] = useState<number | null>(null);
 
-  // Confirmed on-chain price per item, read straight from Shop.priceOf.
-  // Absence of a key = not yet loaded; 0n = confirmed not-for-sale.
-  const [onchainPrices, setOnchainPrices] = useState<Record<string, bigint>>({});
 
-  // Live WBOT/USD from BDEX reserves; used only for the informational
-  // "$ value" label — never as the actual amount sent on-chain.
-  useEffect(() => {
-    let live = true;
-    getWBotPrice().then((p) => live && setBotUsd(p)).catch(() => {});
-    const t = setInterval(() => getWBotPrice().then((p) => live && setBotUsd(p)).catch(() => {}), 60_000);
-    return () => { live = false; clearInterval(t); };
-  }, []);
-
-  // Estimated BOT cost for display purposes only (used before on-chain
-  // prices have loaded, or as the USD-equivalent reference). Never used
-  // to build a transaction.
-  const estimatedBotWei = useCallback((item: Item): bigint => {
+  /** BOT wei this item costs at the live rate (backend wei is the fallback). */
+  const itemBotWei = useCallback((item: Item): bigint => {
     if (botUsd !== null) return usdToBotWei(item.point_price / 1000, botUsd);
     return BigInt(item.bot_price_wei ?? '0');
   }, [botUsd]);
 
   const refresh = useCallback(async () => {
     const cat = await fetch(`${API}/market/catalog`).then((r) => r.json());
-    const items: Item[] = Array.isArray(cat) ? cat : cat.items;
-    setCatalog(items);
+    setCatalog(Array.isArray(cat) ? cat : cat.items);
+    // Backend is the single price source: live BDEX when configured,
+    // BOT_USD_PRICE fallback otherwise. 1,000 points = $1 of BOT.
+    if (!Array.isArray(cat) && cat.bot_usd_price > 0) setBotUsd(cat.bot_usd_price);
     if (address) {
       const i = await fetch(`${API}/market/inventory/${address}`).then((r) => r.json());
       setInv(i.items);
@@ -91,57 +79,8 @@ export function MarketView() {
 
   useEffect(() => { refresh().catch(() => {}); }, [refresh]);
 
-  // Load confirmed on-chain prices for the whole catalog whenever it
-  // changes. This is what actually gates the BOT buy button — items with
-  // no price set on Shop never get an active button, regardless of what
-  // the backend/estimate thinks they should cost.
-  useEffect(() => {
-    if (!SHOP_ADDRESS || catalog.length === 0) return;
-    let live = true;
-
-    (async () => {
-      const { getPublicClient } = await import('@/lib/chain');
-      const client = getPublicClient();
-      const contracts = catalog.map((item) => ({
-        address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: 'priceOf' as const, args: [item.id] as const,
-      }));
-
-      try {
-        // Prefer multicall — one RPC round trip for the whole catalog.
-        const results = await client.multicall({ contracts, allowFailure: true });
-        if (!live) return;
-        const next: Record<string, bigint> = {};
-        results.forEach((r, i) => {
-          next[catalog[i].id] = r.status === 'success' ? (r.result as bigint) : BigInt(0);
-        });
-        setOnchainPrices(next);
-      } catch {
-        // No multicall3 on this chain, or it's not configured in the
-        // client — fall back to individual reads.
-        const entries = await Promise.all(catalog.map(async (item) => {
-          try {
-            const p = await client.readContract({
-              address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: 'priceOf', args: [item.id],
-            }) as bigint;
-            return [item.id, p] as const;
-          } catch {
-            return [item.id, BigInt(0)] as const;
-          }
-        }));
-        if (!live) return;
-        setOnchainPrices(Object.fromEntries(entries));
-      }
-    })();
-
-    return () => { live = false; };
-  }, [catalog]);
-
   const owned = (itemId: string) => inv.some((r) => r.item_id === itemId && !r.consumed);
   const unusedBoost = (itemId: string) => inv.find((r) => r.item_id === itemId && !r.consumed);
-
-  /** true only once we've confirmed on-chain that this item has a price > 0. */
-  const forSaleOnchain = (itemId: string) => (onchainPrices[itemId] ?? BigInt(0)) > BigInt(0);
-  const priceLoaded = (itemId: string) => itemId in onchainPrices;
 
   async function redeem(item: Item) {
     setBusy(`redeem-${item.id}`);
@@ -161,30 +100,22 @@ export function MarketView() {
 
   async function buyWithBot(item: Item) {
     if (!SHOP_ADDRESS) return toast.error('Shop contract not configured');
-    if (!forSaleOnchain(item.id)) {
-      return toast.error(`${item.name} isn't listed for BOT purchase yet`);
-    }
     setBusy(`buy-${item.id}`);
     try {
-      const { getPublicClient } = await import('@/lib/chain');
-      const client = getPublicClient();
-      // Re-read right before sending: the cached price could be a few
-      // minutes stale (catalog effect) and setPrice can change anytime.
-      const price = await client.readContract({
-        address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: 'priceOf', args: [item.id],
-      }) as bigint;
-
-      if (price <= BigInt(0)) {
-        setOnchainPrices((p) => ({ ...p, [item.id]: BigInt(0) }));
-        throw new Error(`${item.name} isn't for sale with BOT yet`);
-      }
-
+      // On-chain price wins when the Shop has one; otherwise pay
+      // point_price/1000 USD worth of BOT at the live DEX price.
+      let price = BigInt(0);
+      try {
+        price = await (await import('@/lib/chain')).getPublicClient().readContract({
+          address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: 'priceOf', args: [item.id],
+        }) as bigint;
+      } catch { /* priceOf unavailable */ }
+      if (price === BigInt(0)) price = itemBotWei(item);
+      if (price === BigInt(0)) throw new Error('No BOT price — redeem with points instead');
       await writeContract({
         address: SHOP_ADDRESS, abi: SHOP_ABI as any, functionName: 'purchase',
-        args: [item.id, BigInt(targetAgent || 0)], value: price, account: address as Address,
+        args: [item.id, BigInt(0)], value: price, account: address as Address,
       });
-
-      setOnchainPrices((p) => ({ ...p, [item.id]: price }));
       toast.success(`${item.name} purchased — granted in a few seconds`);
       setTimeout(() => refresh().catch(() => {}), 4000);
     } catch (e: any) {
@@ -259,7 +190,9 @@ export function MarketView() {
             <Star className="mb-0.5 mr-1 inline h-4 w-4" />{points.toLocaleString()} pts
           </div>
           <Select value={targetAgent} onValueChange={setTargetAgent}>
-            <SelectTrigger className="w-44 bg-background/60"><SelectValue placeholder="Target agent" /></SelectTrigger>
+            <SelectTrigger className={cn('w-44 bg-background/60', !targetAgent && myAgents.length > 0 && 'animate-pulse-glow border-warning/60')}>
+              <SelectValue placeholder="Target agent" />
+            </SelectTrigger>
             <SelectContent>
               {myAgents.map((a) => (
                 <SelectItem key={a.token_id} value={String(a.token_id)}>{a.name} (#{a.token_id})</SelectItem>
@@ -286,10 +219,6 @@ export function MarketView() {
         {catalog.filter((i) => i.kind === tab).map((item) => {
           const has = owned(item.id);
           const boostRow = item.kind === 'boost' ? unusedBoost(item.id) : undefined;
-          const loaded = priceLoaded(item.id);
-          const forSale = forSaleOnchain(item.id);
-          const displayPrice = forSale ? onchainPrices[item.id] : estimatedBotWei(item);
-
           return (
             <div key={item.id} className={cn('rounded-xl border bg-card/50 p-4', has ? 'border-primary/40' : 'border-border')}>
               <div className="flex items-start gap-3">
@@ -303,22 +232,19 @@ export function MarketView() {
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 font-display font-bold">
-                    {item.name}{has && <Check className="h-4 w-4 text-primary" />}
+                    {item.name}
+                    {has && (
+                      <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                        <Check className="h-3 w-3" /> OWNED
+                      </span>
+                    )}
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">{item.desc}</p>
                   <p className="mt-1 text-xs font-semibold">
                     <span className="text-warning">{item.point_price.toLocaleString()} pts</span>
                     <span className="mx-1 text-muted-foreground">·</span>
-                    {loaded && !forSale ? (
-                      <span className="text-muted-foreground italic">not for sale with BOT</span>
-                    ) : (
-                      <>
-                        <span className={cn(forSale ? 'text-primary' : 'text-muted-foreground italic')}>
-                          {fmtBot(displayPrice)} BOT
-                        </span>
-                        <span className="ml-1 text-muted-foreground">(${item.usd_price?.toFixed(2)})</span>
-                      </>
-                    )}
+                    <span className="text-primary">{fmtBot(itemBotWei(item))} BOT</span>
+                    <span className="ml-1 text-muted-foreground">(${item.usd_price?.toFixed(2)})</span>
                   </p>
                 </div>
               </div>
@@ -328,27 +254,18 @@ export function MarketView() {
                     <Button size="sm" disabled={!!busy || points < item.point_price} onClick={() => redeem(item)} className="flex-1">
                       {busy === `redeem-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Redeem'}
                     </Button>
-                    <Button
-                      size="sm" variant="outline" className="flex-1"
-                      disabled={!!busy || !loaded || !forSale}
-                      title={loaded && !forSale ? 'Not listed on Shop yet' : undefined}
-                      onClick={() => buyWithBot(item)}
-                    >
-                      {busy === `buy-${item.id}` ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : !loaded ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : forSale ? (
-                        `${fmtBot(onchainPrices[item.id])} BOT`
-                      ) : (
-                        'Not for sale'
-                      )}
+                    <Button size="sm" variant="outline" disabled={!!busy} onClick={() => buyWithBot(item)} className="flex-1">
+                      {busy === `buy-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : `${fmtBot(itemBotWei(item))} BOT`}
                     </Button>
                   </>
                 )}
                 {has && item.kind !== 'boost' && (
-                  <Button size="sm" variant="outline" disabled={!!busy} onClick={() => equip(item)} className="flex-1">
-                    {busy === `equip-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : `Equip${targetAgent ? ` on #${targetAgent}` : ''}`}
+                  <Button size="sm" variant="outline" disabled={!!busy || !targetAgent}
+                    onClick={() => equip(item)} className="flex-1"
+                    title={!targetAgent ? 'Pick a target agent above first' : undefined}>
+                    {busy === `equip-${item.id}`
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : targetAgent ? `Equip on #${targetAgent}` : 'Pick an agent first'}
                   </Button>
                 )}
                 {boostRow && (
