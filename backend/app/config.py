@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     # Listener
     poll_interval_seconds: float = 2.0
 
-    cors_origins: str = "https://www.agentcombat.xyz"
+    # CORS: "*" accepts any frontend (Vercel previews, localhost, prod).
+    # Set CORS_ORIGINS to a comma-separated list to lock it down later.
+    cors_origins: str = "*"
 
     class Config:
         env_file = ".env"

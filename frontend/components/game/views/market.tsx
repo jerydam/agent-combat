@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useWallet } from '@/lib/wallet';
 import { api } from '@/lib/api';
 import { writeContract } from '@/lib/tx';
+import { getWBotPrice, usdToBotWei } from '@/lib/getWBotPrice';
 import { AVATARS } from '@/lib/avatars';
 import type { Agent } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -36,9 +37,9 @@ interface Item {
   boost: number[] | null; power: Record<string, number> | null;
 }
 
-const fmtBot = (wei: string) => {
-  const n = Number(BigInt(wei) / BigInt(1e12)) / 1e6;
-  return n >= 100 ? n.toFixed(0) : n.toFixed(2);
+const fmtBot = (wei: bigint) => {
+  const n = Number(wei / BigInt(1e12)) / 1e6;
+  return n >= 100 ? n.toFixed(0) : n >= 1 ? n.toFixed(2) : n.toFixed(4);
 };
 interface InvRow { id: number; item_id: string; source: string; consumed: boolean }
 
@@ -53,6 +54,21 @@ export function MarketView() {
   const [myAgents, setMyAgents] = useState<Agent[]>([]);
   const [targetAgent, setTargetAgent] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  const [botUsd, setBotUsd] = useState<number | null>(null);
+
+  // Live WBOT/USD from BDEX reserves; 1,000 points = $1 of BOT at this rate
+  useEffect(() => {
+    let live = true;
+    getWBotPrice().then((p) => live && setBotUsd(p)).catch(() => {});
+    const t = setInterval(() => getWBotPrice().then((p) => live && setBotUsd(p)).catch(() => {}), 60_000);
+    return () => { live = false; clearInterval(t); };
+  }, []);
+
+  /** BOT wei this item costs at the live rate (backend wei is the fallback). */
+  const itemBotWei = useCallback((item: Item): bigint => {
+    if (botUsd !== null) return usdToBotWei(item.point_price / 1000, botUsd);
+    return BigInt(item.bot_price_wei ?? '0');
+  }, [botUsd]);
 
   const refresh = useCallback(async () => {
     const cat = await fetch(`${API}/market/catalog`).then((r) => r.json());
@@ -90,15 +106,15 @@ export function MarketView() {
     if (!SHOP_ADDRESS) return toast.error('Shop contract not configured');
     setBusy(`buy-${item.id}`);
     try {
-      // On-chain price wins when the Shop has one; otherwise pay the
-      // backend-derived price (point_price/1000 USD worth of BOT).
+      // On-chain price wins when the Shop has one; otherwise pay
+      // point_price/1000 USD worth of BOT at the live DEX price.
       let price = BigInt(0);
       try {
         price = await (await import('@/lib/chain')).getPublicClient().readContract({
           address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: 'priceOf', args: [item.id],
         }) as bigint;
       } catch { /* priceOf unavailable */ }
-      if (price === BigInt(0)) price = BigInt(item.bot_price_wei ?? '0');
+      if (price === BigInt(0)) price = itemBotWei(item);
       if (price === BigInt(0)) throw new Error('No BOT price — redeem with points instead');
       await writeContract({
         address: SHOP_ADDRESS, abi: SHOP_ABI as any, functionName: 'purchase',
@@ -167,6 +183,11 @@ export function MarketView() {
             Pay with points or BOT — 1,000 pts = $1 of BOT, same value either way.
             Boosts write stats on-chain; skins and powers equip per agent.
           </p>
+          {botUsd !== null && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Live rate: 1 BOT ≈ ${botUsd.toFixed(2)} · 1,000 pts ≈ {(1 / botUsd).toFixed(4)} BOT
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <div className="split-ring rounded-lg px-3 py-1.5 font-display text-xl font-bold text-warning">
@@ -219,7 +240,7 @@ export function MarketView() {
                   <p className="mt-1 text-xs font-semibold">
                     <span className="text-warning">{item.point_price.toLocaleString()} pts</span>
                     <span className="mx-1 text-muted-foreground">·</span>
-                    <span className="text-primary">{fmtBot(item.bot_price_wei ?? '0')} BOT</span>
+                    <span className="text-primary">{fmtBot(itemBotWei(item))} BOT</span>
                     <span className="ml-1 text-muted-foreground">(${item.usd_price?.toFixed(2)})</span>
                   </p>
                 </div>
@@ -231,7 +252,7 @@ export function MarketView() {
                       {busy === `redeem-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Redeem'}
                     </Button>
                     <Button size="sm" variant="outline" disabled={!!busy} onClick={() => buyWithBot(item)} className="flex-1">
-                      {busy === `buy-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : `${fmtBot(item.bot_price_wei ?? '0')} BOT`}
+                      {busy === `buy-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : `${fmtBot(itemBotWei(item))} BOT`}
                     </Button>
                   </>
                 )}
