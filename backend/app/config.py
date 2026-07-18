@@ -21,16 +21,14 @@ class Settings(BaseSettings):
     # Backend game-signer key (NEVER the deployer key)
     game_server_private_key: str = ""
 
-    # Market: BOT token price in USD (1000 points == 1 USD; item BOT
-    # prices are derived from this). Override with BOT_USD_PRICE.
-    bot_usd_price: float = 0.10
+    # Market fallback only: BOT/USD used when the live BDEX price fetch
+    # fails and there is no cached value yet. Live price wins otherwise.
+    bot_usd_price: float = 9.7
 
     # Listener
     poll_interval_seconds: float = 2.0
 
-    # CORS: "*" accepts any frontend (Vercel previews, localhost, prod).
-    # Set CORS_ORIGINS to a comma-separated list to lock it down later.
-    cors_origins: str = "*"
+    cors_origins: str = "https://www.agentcombat.xyz"
 
     class Config:
         env_file = ".env"

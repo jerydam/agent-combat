@@ -6,7 +6,12 @@ import { createPublicClient, formatUnits, http, zeroAddress, type Address } from
 // From the docs
 const BDEX_V2_FACTORY: Address = '0x117115f3B72C8d1989178089A67D0C26f8EE0AA3';
 const WBOT_ADDRESS: Address    = '0xD5452816194a3784dBa983426cCe7c122F4abd30';
-const BOTCHAIN_RPC = process.env.NEXT_PUBLIC_BOTCHAIN_RPC_URL ?? 'https://rpc.botchain.ai';
+// Same RPC the rest of the app uses unless explicitly overridden —
+// a wrong/dead RPC here would silently pin the price to the fallback.
+const BOTCHAIN_RPC =
+  process.env.NEXT_PUBLIC_BOTCHAIN_RPC_URL ??
+  process.env.NEXT_PUBLIC_RPC_URL ??
+  'https://rpc.botchain.ai';
 
 // Confirm on scan.botchain.ai — "Common Tokens (Mainnet)"
 const STABLE_ADDRESS: Address = '0xaBabc7Ddc03e501d190C676BF3d92ef0e6e87a3C'; // USDT/USDC

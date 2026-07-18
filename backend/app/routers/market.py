@@ -23,7 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
-from ..config import get_settings
+from ..chain.wbot_price import get_wbot_price
 from ..market.catalog import (
     ACHIEVEMENT_BY_ID,
     ACHIEVEMENTS,
@@ -107,8 +107,9 @@ async def claim(body: ClaimBody, db: AsyncSession = Depends(get_db)):
 @router.get("/catalog")
 async def catalog():
     """Items with all three price views: points, USD, and BOT wei.
-    1000 points == 1 USD; BOT price = USD / settings.bot_usd_price."""
-    bot_usd = get_settings().bot_usd_price
+    1000 points == 1 USD; BOT price = USD / live WBOT price (from the
+    BDEX pair; env BOT_USD_PRICE is only the offline fallback)."""
+    bot_usd = await get_wbot_price()
     return {
         "points_per_usd": POINTS_PER_USD,
         "bot_usd_price": bot_usd,
