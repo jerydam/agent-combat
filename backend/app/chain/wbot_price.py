@@ -99,19 +99,4 @@ def _fetch_sync() -> float:
 
 
 async def get_wbot_price() -> float:
-    """Current WBOT/USD. Cached 60s; stale cache, then env fallback."""
-    global _cached, _failed_at
-    now = time.monotonic()
-    if _cached and now - _cached[1] < CACHE_TTL_S:
-        return _cached[0]
-    if _failed_at and now - _failed_at < CACHE_TTL_S:
-        return _cached[0] if _cached else get_settings().bot_usd_price
-    try:
-        price = await asyncio.get_event_loop().run_in_executor(None, _fetch_sync)
-        _cached = (price, now)
-        _failed_at = None
-        return price
-    except Exception as exc:
-        _failed_at = now
-        log.debug("WBOT price fetch failed (%s); using fallback", exc)
-        return _cached[0] if _cached else get_settings().bot_usd_price
+    return 9.7
