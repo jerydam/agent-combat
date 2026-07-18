@@ -18,7 +18,6 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ElementType }[] = [
   { href: '/arena', label: 'Arena', icon: Swords },
   { href: '/combat', label: 'Combat', icon: Flame },
   { href: '/training', label: 'Training', icon: Dumbbell },
-  { href: '/solo', label: 'Solo', icon: Bot },
   { href: '/leagues', label: 'Leagues', icon: Users },
   { href: '/tournaments', label: 'Tournaments', icon: Medal },
   { href: '/achievements', label: 'Achievements', icon: Award },

@@ -185,8 +185,77 @@ async def resolve_tournament(w3, nft, tournament, tid: int, bracket_seed: int):
     log.info("Tournament %s podium: %s (tx %s)", tid, podium, tx_hash)
 
 
-async def resolve_solo(w3, nft, solo, event) -> None:
-    """Player vs bot: same trust loop as duels, house pays via SoloArena."""
+async def index_solo(event) -> None:
+    """SoloPlayed: index the staked game as pending. The player's live
+    combat match resolves it (routers/combat.py); if they never play it,
+    sweep_stale_solo() settles it by simulation so the stake never locks."""
+    game_id = event["args"]["gameId"]
+    async with SessionLocal() as db:
+        if await db.get(SoloGame, game_id):
+            return
+        db.add(SoloGame(
+            game_id=game_id,
+            agent_id=event["args"]["agentId"],
+            bot_id=event["args"]["botId"],
+            player=event["args"]["player"].lower(),
+            stake_wei=str(event["args"]["stake"]),
+            status="pending",
+        ))
+        await db.commit()
+    log.info("Solo game %s indexed (pending live combat)", game_id)
+
+
+SOLO_PENDING_TTL_S = 15 * 60  # abandoned staked games settle after this
+
+
+async def sweep_stale_solo(w3, nft, solo) -> None:
+    """Auto-resolve pending solo games older than the TTL via simulation
+    (the pre-live-combat behavior) so escrowed stakes always pay out."""
+    from sqlalchemy import select
+
+    cutoff = datetime.now(timezone.utc).timestamp() - SOLO_PENDING_TTL_S
+    async with SessionLocal() as db:
+        rows = (
+            await db.execute(
+                select(SoloGame).where(SoloGame.status == "pending")
+            )
+        ).scalars().all()
+        stale = [
+            (g.game_id, g.agent_id, g.bot_id)
+            for g in rows
+            if g.created_at is not None and g.created_at.timestamp() < cutoff
+        ]
+
+    for game_id, agent_id, bot_id in stale:
+        try:
+            async with SessionLocal() as db:
+                mem = await head_to_head(db, agent_id, bot_id)
+            fighter = _fighter_from_chain(nft, agent_id)
+            bot = _fighter_from_chain(nft, bot_id)
+            fighter.memory_vs_opponent = mem
+            bot.memory_vs_opponent = (mem[1], mem[0])
+            battle_log = simulate(fighter, bot, game_id)
+            m_hash = moves_hash(battle_log)
+            player_won = battle_log["winner"] == agent_id
+            tx_hash = _send_tx(
+                w3, solo.functions.submitResult(game_id, player_won, m_hash)
+            )
+            async with SessionLocal() as db:
+                g = await db.get(SoloGame, game_id)
+                g.status = "resolved"
+                g.player_won = player_won
+                g.moves = battle_log
+                g.moves_hash = m_hash.hex()
+                g.tx_hash = tx_hash
+                await db.commit()
+            log.info("Stale solo %s swept: player %s (tx %s)",
+                     game_id, "won" if player_won else "lost", tx_hash)
+        except Exception:
+            log.exception("Sweeping solo game %s failed", game_id)
+
+
+async def _unused_resolve_solo(w3, nft, solo, event) -> None:
+    """(retired) kept for reference: the old auto-simulated solo flow."""
     game_id = event["args"]["gameId"]
     agent_id = event["args"]["agentId"]
     bot_id = event["args"]["botId"]
@@ -397,7 +466,8 @@ async def run_listener() -> None:
                     for ev in solo.events.SoloPlayed().get_logs(
                         from_block=frm, to_block=to
                     ):
-                        await resolve_solo(w3, nft, solo, ev)
+                        await index_solo(ev)
+                    await sweep_stale_solo(w3, nft, solo)
 
                 if league is not None:
                     for ev in league.events.LeagueActivated().get_logs(

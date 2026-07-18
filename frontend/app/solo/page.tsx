@@ -1,7 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { SoloView } from '@/components/game/views/solo';
-
+// Solo merged into Combat: same real-time fight, optional stake.
 export default function SoloPage() {
-  return <SoloView />;
+  redirect('/combat');
 }

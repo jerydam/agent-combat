@@ -41,6 +41,7 @@ class Room:
     on_finish: object | None = None  # async callback(room) -> dict | None
     wallet: str = ""       # player wallet (slot 0), for rewards
     agent_id: int | None = None  # minted agent fighting in slot 0, if any
+    solo_game_id: int | None = None  # on-chain staked SoloArena game
 
 
 class RoomManager:

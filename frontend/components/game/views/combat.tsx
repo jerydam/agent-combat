@@ -4,8 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
   combatWsUrl, loadSettings, saveSettings, sfx, haptic,
-  type CombatSettings, type RewardInfo, type ServerMsg, type StateMsg,
+  type CombatSettings, type RewardInfo, type ServerMsg, type StakeInfo, type StateMsg,
 } from '@/lib/combat-client';
+import { writeContract, eventArgs } from '@/lib/tx';
+import { ADDRESSES, SOLO_ARENA_ABI } from '@/lib/contracts';
+import { formatEther, parseEther } from 'viem';
+import { toast } from 'sonner';
 import { PERSONALITY_NAMES, type Agent } from '@/lib/types';
 import { AVATARS } from '@/lib/avatars';
 import { api } from '@/lib/api';
@@ -13,7 +17,7 @@ import { useWallet } from '@/lib/wallet';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Settings, X, Swords, Shield, Star, ChevronUp } from 'lucide-react';
+import { Settings, X, Swords, Shield, Star, ChevronUp, Coins, Loader2 } from 'lucide-react';
 import { useLandscapeGameMode } from '@/lib/game-mode';
 
 interface FloatingNum { id: number; slot: 0 | 1; text: string; cls: string }
@@ -42,7 +46,7 @@ export function CombatView() {
   const [phase, setPhase] = useState<'setup' | 'connecting' | 'countdown' | 'fight' | 'result'>('setup');
   const [countdown, setCountdown] = useState(3);
   const [state, setState] = useState<StateMsg | null>(null);
-  const [result, setResult] = useState<{ winner: number; win_reason?: string; log: any; reward?: RewardInfo } | null>(null);
+  const [result, setResult] = useState<{ winner: number; win_reason?: string; log: any; reward?: RewardInfo; stake?: StakeInfo } | null>(null);
   const [floats, setFloats] = useState<FloatingNum[]>([]);
   const [shake, setShake] = useState(false);
   const [flash, setFlash] = useState<0 | 1 | null>(null);
@@ -50,6 +54,9 @@ export function CombatView() {
   const [difficulty, setDifficulty] = useState(55);
   const [myAgents, setMyAgents] = useState<Agent[]>([]);
   const [agentId, setAgentId] = useState<number | null>(null);
+  const [stake, setStake] = useState('');           // BOT; '' = free play
+  const [escrowBotId, setEscrowBotId] = useState<number>(0);
+  const [staking, setStaking] = useState(false);
   const { containerStyle, activate } = useLandscapeGameMode();
   const wsRef = useRef<WebSocket | null>(null);
   const holdStart = useRef<number>(0);
@@ -63,6 +70,7 @@ export function CombatView() {
     api.agents(address)
       .then((a) => { if (!live) return; setMyAgents(a); if (a.length && agentId === null) setAgentId(a[0].token_id); })
       .catch(() => {});
+    api.bots().then((b) => { if (live && b.length) setEscrowBotId(b[0].token_id); }).catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, address]);
@@ -114,7 +122,7 @@ export function CombatView() {
     }
   }, [vol, settings, addFloat]);
 
-  const connect = useCallback(() => {
+  const connect = useCallback((gameId?: number) => {
     activate();
     setPhase('connecting');
     setResult(null);
@@ -124,6 +132,7 @@ export function CombatView() {
     };
     if (address) params.wallet = address;         // earn points every fight
     if (agentId !== null) params.agent_id = agentId; // wins/XP hit this agent
+    if (gameId !== undefined) params.game_id = gameId; // staked: this fight settles it
     const ws = new WebSocket(combatWsUrl(params));
     wsRef.current = ws;
     ws.onmessage = (ev) => {
@@ -131,6 +140,7 @@ export function CombatView() {
       if (msg.kind === 'countdown') { setPhase('countdown'); setCountdown(msg.n); sfx.count(vol); }
       else if (msg.kind === 'fight') { setPhase('fight'); sfx.fight(vol); }
       else if (msg.kind === 'state') { setState(msg); if (msg.events.length) handleEvents(msg.events); }
+      else if (msg.kind === 'error') { toast.error(msg.message); setPhase('setup'); }
       else if (msg.kind === 'result') { setResult(msg); setPhase('result'); }
     };
     ws.onerror = () => setPhase('setup');
@@ -138,6 +148,42 @@ export function CombatView() {
   }, [botPersonality, difficulty, vol, handleEvents, activate, address, agentId]);
 
   useEffect(() => () => wsRef.current?.close(), []);
+
+  /** Stake BOT on this fight via SoloArena, then fight for it live. */
+  const fightStaked = useCallback(async () => {
+    if (!address || agentId === null) return;
+    let value: bigint;
+    try { value = parseEther(stake); } catch { return toast.error('Invalid stake amount'); }
+    if (value <= BigInt(0)) return toast.error('Stake must be above 0');
+    setStaking(true);
+    try {
+      const receipt = await writeContract({
+        address: ADDRESSES.soloArena,
+        abi: SOLO_ARENA_ABI as any,
+        functionName: 'play',
+        args: [BigInt(agentId), BigInt(escrowBotId)],
+        value,
+        account: address as `0x${string}`,
+      });
+      const played = eventArgs<{ gameId: bigint }>(receipt, SOLO_ARENA_ABI as any, 'SoloPlayed');
+      if (!played) throw new Error('Stake confirmed but game id not found in receipt');
+      const gameId = Number(played.gameId);
+      // wait for the backend to index the game before entering the arena
+      for (let i = 0; i < 12; i++) {
+        try { await api.soloGame(gameId); break; }
+        catch { await new Promise((r) => setTimeout(r, 1000)); }
+      }
+      toast.success(`${stake} BOT staked — win this fight to take 1.8×`);
+      connect(gameId);
+    } catch (e: any) {
+      toast.error(e?.shortMessage ?? e?.message ?? 'Staking failed');
+    } finally { setStaking(false); }
+  }, [address, agentId, stake, escrowBotId, connect]);
+
+  const startFight = () => {
+    if (stake.trim() !== '' && Number(stake) > 0) fightStaked();
+    else connect();
+  };
 
   // ------------------------------------------------------------- inputs
   const attackDown = () => { holdStart.current = Date.now(); };
@@ -311,9 +357,26 @@ export function CombatView() {
             <Slider value={[difficulty]} min={40} max={90} step={5} onValueChange={([v]) => setDifficulty(v)} />
             <span className="w-8 tabular-nums">{difficulty}</span>
           </div>
+          {connected && agentId !== null && (
+            <div className="flex items-center gap-2 text-sm">
+              <Coins className="h-4 w-4 text-warning" />
+              <span className="text-muted-foreground">Stake</span>
+              <input
+                value={stake}
+                onChange={(e) => setStake(e.target.value.replace(/[^0-9.]/g, ''))}
+                placeholder="0 = free"
+                inputMode="decimal"
+                className="w-24 rounded-lg border border-border bg-input px-2.5 py-1.5 text-right tabular-nums outline-none focus:border-warning"
+              />
+              <span className="text-muted-foreground">BOT · win pays <span className="text-warning">1.8×</span></span>
+            </div>
+          )}
           <div className="flex items-center gap-3">
-            <Button size="lg" onClick={connect} className="animate-pulse-glow font-display text-lg tracking-widest">
-              <Swords className="mr-2 h-5 w-5" /> FIGHT
+            <Button size="lg" onClick={startFight} disabled={staking}
+              className="animate-pulse-glow font-display text-lg tracking-widest">
+              {staking
+                ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> STAKING…</>
+                : <><Swords className="mr-2 h-5 w-5" /> {stake.trim() !== '' && Number(stake) > 0 ? `FIGHT · ${stake} BOT` : 'FIGHT'}</>}
             </Button>
             <Button variant="outline" size="lg" onClick={() => setShowSettings(true)} className="font-display">
               <Settings className="mr-2 h-4 w-4" /> SETTINGS
@@ -363,10 +426,23 @@ export function CombatView() {
               )}
             </div>
           )}
+          {result.stake && (
+            <div className={cn('rounded-xl border px-5 py-2.5 text-sm font-display font-bold',
+              result.stake.won ? 'border-success/50 bg-success/10 text-success' : 'border-destructive/50 bg-destructive/10 text-destructive')}>
+              {result.stake.won
+                ? `+${Number(formatEther(BigInt(result.stake.payout_wei))).toFixed(2)} BOT paid out (1.8× stake)`
+                : `Stake lost (${Number(formatEther(BigInt(result.stake.stake_wei))).toFixed(2)} BOT)`}
+              {!result.stake.settled && (
+                <span className="ml-2 font-body text-xs font-normal text-muted-foreground">settling on-chain…</span>
+              )}
+            </div>
+          )}
           {!result.reward && (
             <p className="text-xs text-muted-foreground">Connect your wallet before fighting to earn points and record wins.</p>
           )}
-          <Button size="lg" onClick={connect} className="font-display tracking-widest">REMATCH</Button>
+          <Button size="lg" onClick={() => connect()} className="font-display tracking-widest">
+            REMATCH{result.stake ? ' · FREE' : ''}
+          </Button>
           <Button variant="ghost" onClick={() => setPhase('setup')}>Change opponent</Button>
         </div>
       )}

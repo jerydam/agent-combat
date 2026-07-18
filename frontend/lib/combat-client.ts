@@ -31,9 +31,18 @@ export interface RewardInfo {
   leveled_up: boolean;
 }
 
+export interface StakeInfo {
+  won: boolean;
+  settled: boolean;
+  tx_hash?: string;
+  stake_wei: string;
+  payout_wei: string;
+}
+
 export type ServerMsg =
   | { kind: 'countdown'; n: number }
   | { kind: 'fight' }
+  | { kind: 'error'; message: string }
   | StateMsg
   | {
       kind: 'result';
@@ -41,6 +50,7 @@ export type ServerMsg =
       win_reason?: 'ko' | 'score' | 'hp' | 'tiebreak';
       log: any;
       reward?: RewardInfo;
+      stake?: StakeInfo;
     };
 
 export function combatWsUrl(params: Record<string, string | number>): string {

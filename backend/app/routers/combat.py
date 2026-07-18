@@ -1,10 +1,17 @@
-"""Combat WebSocket endpoints.
+"""Combat WebSocket endpoints — this IS solo mode.
 
-Practice mode: connect to
+Free play: connect to
   /ws/combat/practice?personality=0&bot_personality=2&difficulty=60
 and fight a bot immediately. Add &wallet=0x..(&agent_id=..) and the match
 IS recorded: the wallet earns achievement points every fight, and a real
 agent's wins/losses/XP move.
+
+Staked play: call SoloArena.play(agentId, botId) with BOT attached, then
+connect with &game_id=<gameId>&wallet=&agent_id=. The result of THIS live
+fight is what the server submits on-chain (submitResult) — win and the
+contract pays 1.8x. Abandoned staked games are swept by the listener so
+stakes never lock. The on-chain botId is only an escrow reference; the
+opponent you actually fight is the tap AI at your chosen difficulty.
 
 Rewards (wallet connected):
   win:  50 pts + score/10   loss: score/20   (see _award)
@@ -25,7 +32,7 @@ from ..database import SessionLocal
 from ..engine.agent_engine import FighterState as ChainStats, Personality
 from ..market.catalog import ITEM_BY_ID
 from ..models import (AgentCache, AgentLoadout, CombatMatchRecord,
-                      PlayerProgress)
+                      PlayerProgress, SoloGame)
 from ..combat.rooms import Room, manager
 
 log = logging.getLogger("arena.combat")
@@ -69,12 +76,66 @@ async def _from_cache(agent_id: int) -> ChainStats | None:
         )
 
 
-async def _award(room: Room) -> dict:
-    """on_finish: record the match and grant rewards. Returns the payload
-    merged into the result broadcast so the client can show it live."""
+async def _settle_stake(room: Room) -> dict:
+    """Submit this live fight's outcome for the staked SoloArena game."""
+    import asyncio
+
     m = room.match
+    won = m.winner == 0
+    async with SessionLocal() as db:
+        g = await db.get(SoloGame, room.solo_game_id)
+        if g is None or g.status != "pending":
+            return {}
+        stake_wei = g.stake_wei
+    result_log = m.result_log()
+
+    def _submit() -> str:
+        from ..chain.client import get_contracts, get_w3
+        from ..chain.listener import _send_tx
+        from ..chain.signer import moves_hash
+
+        w3 = get_w3()
+        solo = get_contracts(w3)[4]
+        return _send_tx(
+            w3,
+            solo.functions.submitResult(
+                room.solo_game_id, won, moves_hash(result_log)
+            ),
+        )
+
+    try:
+        tx_hash = await asyncio.get_event_loop().run_in_executor(None, _submit)
+    except Exception:
+        log.exception("submitResult failed for solo game %s (sweeper will retry)",
+                      room.solo_game_id)
+        return {"stake": {"won": won, "settled": False,
+                          "stake_wei": stake_wei, "payout_wei": "0"}}
+
+    from ..chain.signer import moves_hash as _mh
+
+    async with SessionLocal() as db:
+        g = await db.get(SoloGame, room.solo_game_id)
+        g.status = "resolved"
+        g.player_won = won
+        g.moves = result_log
+        g.moves_hash = _mh(result_log).hex()
+        g.tx_hash = tx_hash
+        await db.commit()
+
+    payout = str(int(stake_wei) * 18 // 10) if won else "0"
+    return {"stake": {"won": won, "settled": True, "tx_hash": tx_hash,
+                      "stake_wei": stake_wei, "payout_wei": payout}}
+
+
+async def _award(room: Room) -> dict:
+    """on_finish: record the match, grant rewards, settle any stake.
+    Returns the payload merged into the result broadcast."""
+    m = room.match
+    extra: dict = {}
+    if room.solo_game_id is not None:
+        extra.update(await _settle_stake(room))
     if not room.wallet:
-        return {}
+        return extra
     won = m.winner == 0
     my, opp = m.score(0), m.score(1)
     points = (WIN_BONUS + my // WIN_DIVISOR) if won else my // LOSS_DIVISOR
@@ -112,12 +173,13 @@ async def _award(room: Room) -> dict:
         await db.commit()
         total = prog.points
 
-    return {"reward": {
+    extra["reward"] = {
         "points": points,
         "total_points": total,
         "won": won,
         "leveled_up": leveled_up,
-    }}
+    }
+    return extra
 
 
 @router.websocket("/ws/combat/practice")
@@ -127,6 +189,33 @@ async def practice(ws: WebSocket):
 
     wallet = (q.get("wallet") or "").lower()
     agent_id = int(q["agent_id"]) if q.get("agent_id") else None
+
+    # Staked solo: the game must be indexed, pending, and owned by this
+    # wallet. The listener indexes SoloPlayed within ~2 blocks; retry
+    # briefly to cover the race with the tx confirmation.
+    solo_game_id: int | None = None
+    if q.get("game_id"):
+        import asyncio as _aio
+
+        gid = int(q["game_id"])
+        for _ in range(12):
+            async with SessionLocal() as db:
+                g = await db.get(SoloGame, gid)
+            if g is not None:
+                break
+            await _aio.sleep(1)
+        if g is None or g.status != "pending":
+            await ws.send_json({"kind": "error",
+                                "message": "Staked game not found or already settled"})
+            await ws.close()
+            return
+        if not wallet or g.player.lower() != wallet:
+            await ws.send_json({"kind": "error",
+                                "message": "This staked game belongs to another wallet"})
+            await ws.close()
+            return
+        solo_game_id = gid
+        agent_id = agent_id or g.agent_id
 
     me = None
     if agent_id is not None:
@@ -160,6 +249,7 @@ async def practice(ws: WebSocket):
     )
     room.wallet = wallet
     room.agent_id = agent_id
+    room.solo_game_id = solo_game_id
     await manager.join(room, 0, ws)
 
     try:
