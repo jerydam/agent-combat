@@ -166,12 +166,13 @@ async def redeem(body: RedeemBody, db: AsyncSession = Depends(get_db)):
         raise HTTPException(400, f"Need {item.point_price} points, have {p.points}")
     # skins/powers are one-per-wallet; boosts stack
     if item.kind != "boost":
+        # in redeem(), replace the owned query block:
         owned = (
             await db.execute(
                 select(InventoryItem).where(
                     InventoryItem.wallet == body.wallet.lower(),
                     InventoryItem.item_id == item.id,
-                )
+                ).limit(1)
             )
         ).scalar_one_or_none()
         if owned:
