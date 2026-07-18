@@ -176,8 +176,10 @@ export function CombatView() {
       toast.success(`${stake} BOT staked — win this fight to take 1.8×`);
       connect(gameId);
     } catch (e: any) {
-      toast.error(e?.shortMessage ?? e?.message ?? 'Staking failed');
-    } finally { setStaking(false); }
+  console.error('STAKE ERROR FULL:', e);
+  console.error('STAKE ERROR JSON:', JSON.stringify(e, null, 2));
+  toast.error(e?.shortMessage ?? e?.message ?? String(e) ?? 'Staking failed');
+} finally { setStaking(false); }
   }, [address, agentId, stake, escrowBotId, connect]);
 
   const startFight = () => {
