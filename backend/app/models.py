@@ -8,9 +8,7 @@ from .database import Base
 
 
 class User(Base):
-    """Player profile, created on first wallet connect."""
-
-    __tablename__ = "users"
+    __tablename__ = "arena_players"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     wallet: Mapped[str] = mapped_column(String(42), unique=True, index=True)
@@ -18,7 +16,6 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
-
 
 class AgentCache(Base):
     """Off-chain mirror of on-chain agents, refreshed by the chain client.

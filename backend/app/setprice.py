@@ -1,21 +1,10 @@
-"""Sync CATALOG prices onto the on-chain Shop contract.
+"""Set prices on the Shop contract for all catalog items with point_price >= 1500.
 
-For every item in market.catalog.CATALOG, computes the BOT-wei price at the
-current BOT/USD rate and calls Shop.setPrice(itemId, price) as the contract
-owner. Safe to re-run: setPrice always overwrites, so this doubles as a
-repricing job you can put on a schedule (recommended — priceOf is static,
-BOT/USD isn't).
-
-Usage (run from backend/, as a module, so `app.market.catalog`'s relative
-imports resolve — plain `python app/setprice.py` will NOT work):
-    python3.12 -m app.setprice                      # price qualifying items
-    python3.12 -m app.setprice --dry-run             # show what would be set, no txs
-    python3.12 -m app.setprice --only av_ronin boost_str   # subset
-
-Env vars required:
-    RPC_URL          RPC endpoint for the target chain (Celo or Botchain)
-    SHOP_ADDRESS     deployed Shop contract address
-    OWNER_PRIVATE_KEY  private key of the Shop's `owner()` account
+Env vars (from .env):
+    RPC_URL           RPC endpoint
+    HOP_ADDRESS       deployed Shop contract address  (mapped from SHOP_ADDRESS)
+    OWNER_PRIVATE_KEY private key of the Shop owner
+    CHAIN_ID          (optional, derived from RPC if absent)
 """
 
 from __future__ import annotations
@@ -24,22 +13,78 @@ import argparse
 import os
 import sys
 import time
-
-from web3 import Web3
-from web3.middleware import ExtraDataToPOAMiddleware  # needed on some L2s/sidechains
+from dataclasses import dataclass
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()  # picks up backend/.env when run from backend/ via -m
+    load_dotenv()
 except ImportError:
-    pass  # python-dotenv not installed — rely on already-exported env vars
+    pass
 
-# catalog.py does `from ..models import (...)`, so it must be imported as
-# part of the app package (app.market.catalog) — not as a bare top-level
-# module. Run this script with `python3.12 -m app.setprice` from the
-# backend/ directory (see usage note below), which puts backend/ on
-# sys.path and makes this import resolve correctly.
-from app.market.catalog import CATALOG, bot_price_wei  # noqa: E402
+from web3 import Web3
+from web3.middleware import ExtraDataToPOAMiddleware
+
+
+# ── inline catalog (no relative imports needed) ──────────────────────────────
+
+@dataclass(frozen=True)
+class ItemDef:
+    id: str
+    kind: str
+    name: str
+    desc: str
+    point_price: int
+    boost: tuple | None = None
+    power: dict | None = None
+
+
+CATALOG: list[ItemDef] = [
+    ItemDef("av_ronin",      "skin", "Ronin",          "Wandering blade in crimson",                              600),
+    ItemDef("av_guardian",   "skin", "Guardian",        "Tower-shield sentinel",                                   600),
+    ItemDef("av_striker",    "skin", "Striker",         "Bare-knuckle brawler",                                    600),
+    ItemDef("av_mystic",     "skin", "Mystic",          "Mind over muscle",                                        800),
+    ItemDef("av_captain",    "skin", "Captain",         "Decorated arena veteran",                                 800),
+    ItemDef("av_shadow",     "skin", "Shadow",          "Seen only when striking",                                1000),
+    ItemDef("av_valkyrie",   "skin", "Valkyrie",        "Spear of the north",                                     1000),
+    ItemDef("av_monk",       "skin", "Monk",            "A hundred parries a day",                                1000),
+    ItemDef("av_cyber",      "skin", "Cyber Duelist",   "Neon augmented fighter",                                 1200),
+    ItemDef("av_phantom",    "skin", "Phantom",         "Purple void ghost. Strikes from the abyss.",             1500),
+    ItemDef("av_berserker",  "skin", "Berserker",       "Blazing orange rage fighter. High-ATK playstyle.",       1500),
+    ItemDef("av_specter",    "skin", "Specter",         "Neon-green matrix hacker. High-INT tactical mind.",      1800),
+    ItemDef("av_tempest",    "skin", "Tempest",         "Cyan lightning elemental. Built for pure speed.",        1800),
+    ItemDef("av_ironclad",   "skin", "Ironclad",        "Silver/gunmetal tank. DEF-heavy and immovable.",         2000),
+    ItemDef("av_oracle",     "skin", "Oracle",          "Purple psychic seer. Sees your next move already.",      2000),
+    ItemDef("av_warlord",    "skin", "Warlord",         "Gold-trimmed armored commander. Prestige tournament feel.", 2000),
+    ItemDef("av_champion",   "skin", "Champion",        "Golden crown of the arena",                              2000),
+    ItemDef("av_ranger_red", "skin", "Red Ranger",      "Bold sentai front-liner. Aggressive and fearless.",      2500),
+    ItemDef("av_ranger_blue","skin", "Blue Ranger",     "Cool-headed sentai tactician. Calm under pressure.",     2500),
+    ItemDef("av_ranger_gold","skin", "Gold Ranger",     "Elite prestige variant. Reserved for tournament legends.", 4000),
+    ItemDef("av_blaze",      "skin", "Blaze",           "Red-hot flame hero. Burns brighter than the rest.",      3000),
+    ItemDef("av_nova",       "skin", "Nova",            "Cosmic energy warrior. Tactical and unstoppable.",       3500),
+    ItemDef("av_volt",       "skin", "Volt",            "Blue/yellow electric speedster. Lightning reflexes.",    3000),
+    ItemDef("av_titan",      "skin", "Titan",           "Hulking green tank. Immovable. Unbreakable.",            3500),
+    ItemDef("boost_str",     "boost","Strength Serum",  "+5 ATK on-chain",                                        800, boost=(5,0,0,0)),
+    ItemDef("boost_grit",    "boost","Grit Serum",      "+5 DEF on-chain",                                        800, boost=(0,5,0,0)),
+    ItemDef("boost_agility", "boost","Agility Serum",   "+5 SPD on-chain",                                        800, boost=(0,0,5,0)),
+    ItemDef("boost_mind",    "boost","Mind Serum",      "+5 INT on-chain",                                        800, boost=(0,0,0,5)),
+    ItemDef("boost_omni",    "boost","Omni Serum",      "+3 to every stat on-chain",                             2000, boost=(3,3,3,3)),
+    ItemDef("pw_second_wind","power","Second Wind",     "+20% stamina regen",                                    1000, power={"regen_mult": 1.2}),
+    ItemDef("pw_iron_guard", "power","Iron Guard",      "Blocks absorb 6% more",                                 1000, power={"block_bonus": 0.06}),
+    ItemDef("pw_focus_core", "power","Focus Core",      "Parry window +40ms",                                    1400, power={"parry_bonus_ms": 40}),
+]
+
+POINTS_PER_USD = 1000
+
+def usd_price(item: ItemDef) -> float:
+    return item.point_price / POINTS_PER_USD
+
+def bot_price_wei(item: ItemDef, bot_usd: float) -> int:
+    if bot_usd <= 0:
+        return 0
+    return int(round(usd_price(item) / bot_usd * 10**18))
+
+
+# ── ABI ───────────────────────────────────────────────────────────────────────
 
 SHOP_ABI = [
     {
@@ -48,7 +93,7 @@ SHOP_ABI = [
         "stateMutability": "nonpayable",
         "inputs": [
             {"name": "itemId", "type": "string"},
-            {"name": "price", "type": "uint128"},
+            {"name": "price",  "type": "uint128"},
         ],
         "outputs": [],
     },
@@ -56,132 +101,120 @@ SHOP_ABI = [
         "name": "priceOf",
         "type": "function",
         "stateMutability": "view",
-        "inputs": [{"name": "", "type": "string"}],
+        "inputs":  [{"name": "", "type": "string"}],
         "outputs": [{"name": "", "type": "uint128"}],
     },
     {
         "name": "owner",
         "type": "function",
         "stateMutability": "view",
-        "inputs": [],
+        "inputs":  [],
         "outputs": [{"name": "", "type": "address"}],
     },
 ]
 
 
-def get_current_bot_usd() -> float:
-    """Return the current BOT/USD price.
-
-    TODO: point this at whatever your backend already uses to compute
-    `bot_price_wei` in the /market/catalog response (BDEX reserve read,
-    same source getWBotPrice() mirrors on the frontend). Keeping this in
-    one place means the on-chain price and the price shown in the UI never
-    disagree.
-    """
-    raise NotImplementedError(
-        "Wire this up to your existing BOT/USD price source "
-        "(the same one that feeds bot_price_wei in /market/catalog)."
-    )
-
+# ── main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--only", nargs="*", default=None, help="subset of item ids")
-    parser.add_argument(
-        "--min-points", type=int, default=1500,
-        help="only price items with point_price >= this (default: 1500)",
-    )
-    parser.add_argument(
-        "--force", action="store_true",
-        help="set price even if it already matches on-chain (default: skip unchanged)",
-    )
+    parser.add_argument("--dry-run",    action="store_true")
+    parser.add_argument("--only",       nargs="*", default=None)
+    parser.add_argument("--min-points", type=int,  default=1500)
+    parser.add_argument("--force",      action="store_true",
+                        help="re-set even if on-chain price already matches")
     args = parser.parse_args()
 
-    rpc_url = os.environ["RPC_URL"]
-    shop_address = Web3.to_checksum_address(os.environ["SHOP_ADDRESS"])
+    rpc_url     = os.environ["RPC_URL"]
+    # env uses HOP_ADDRESS; fall back to SHOP_ADDRESS if someone renames it
+    shop_addr   = os.environ.get("HOP_ADDRESS") or os.environ["SHOP_ADDRESS"]
     private_key = os.environ["OWNER_PRIVATE_KEY"]
+
+    shop_address = Web3.to_checksum_address(shop_addr)
 
     w3 = Web3(Web3.HTTPProvider(rpc_url))
     w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+
+    if not w3.is_connected():
+        sys.exit(f"Cannot connect to RPC: {rpc_url}")
+
     account = w3.eth.account.from_key(private_key)
-    shop = w3.eth.contract(address=shop_address, abi=SHOP_ABI)
+    shop    = w3.eth.contract(address=shop_address, abi=SHOP_ABI)
 
     onchain_owner = shop.functions.owner().call()
     if onchain_owner.lower() != account.address.lower():
         sys.exit(
-            f"Signer {account.address} is not the Shop owner ({onchain_owner}). "
+            f"Signer {account.address} != Shop owner {onchain_owner}.\n"
             "setPrice will revert with OwnableUnauthorizedAccount."
         )
 
     bot_usd = 9.7
-    if bot_usd <= 0:
-        sys.exit(f"Bad BOT/USD price: {bot_usd}")
-    print(f"BOT/USD = {bot_usd}")
+    print(f"BOT/USD  = {bot_usd}")
+    print(f"Chain ID = {w3.eth.chain_id}")
+    print(f"Signer   = {account.address}")
+    print(f"Shop     = {shop_address}\n")
 
+    # filter catalog
     items = [i for i in CATALOG if i.point_price >= args.min_points]
     if args.only:
         items = [i for i in items if i.id in args.only]
         missing = set(args.only) - {i.id for i in items}
-        # also flag ids that exist in CATALOG but got excluded by --min-points,
-        # so a typo'd id and a too-cheap id don't look the same
-        excluded_by_price = {
-            i.id for i in CATALOG
-            if i.id in args.only and i.point_price < args.min_points
-        }
-        if excluded_by_price:
-            sys.exit(
-                f"Item id(s) below --min-points {args.min_points}: {sorted(excluded_by_price)} "
-                "— lower --min-points or omit them."
-            )
         if missing:
             sys.exit(f"Unknown item id(s): {sorted(missing)}")
 
     if not items:
         sys.exit(f"No catalog items with point_price >= {args.min_points}.")
 
-    print(f"Filter: point_price >= {args.min_points}  ({len(items)}/{len(CATALOG)} catalog items match)")
+    print(f"Items matching point_price >= {args.min_points}: {len(items)}/{len(CATALOG)}\n")
 
-    nonce = w3.eth.get_transaction_count(account.address)
+    nonce   = w3.eth.get_transaction_count(account.address)
     chain_id = w3.eth.chain_id
     planned = []
 
     for item in items:
-        target_price = bot_price_wei(item, bot_usd)
-        current_price = shop.functions.priceOf(item.id).call()
-        if target_price == current_price and not args.force:
-            print(f"  = {item.id:<16} unchanged ({current_price} wei)")
+        target  = bot_price_wei(item, bot_usd)
+        current = shop.functions.priceOf(item.id).call()
+        if target == current and not args.force:
+            print(f"  = {item.id:<20} unchanged  ({current} wei)")
             continue
-        planned.append((item, current_price, target_price))
+        planned.append((item, current, target))
 
     if not planned:
-        print("Nothing to update.")
+        print("\nNothing to update.")
         return
 
     print(f"\n{len(planned)} item(s) to update:")
     for item, old, new in planned:
-        print(f"  {item.id:<16} {old} -> {new} wei")
+        arrow = "NEW" if old == 0 else f"{old} ->"
+        print(f"  {item.id:<20} {arrow} {new} wei  (${usd_price(item):.2f})")
 
     if args.dry_run:
         print("\n--dry-run: no transactions sent.")
         return
 
     print()
+    ok = 0
     for item, old, new in planned:
-        tx = shop.functions.setPrice(item.id, new).build_transaction({
-            "from": account.address,
-            "nonce": nonce,
-            "chainId": chain_id,
-            "gas": 80_000,
-            "gasPrice": w3.eth.gas_price,
-        })
-        signed = account.sign_transaction(tx)
-        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-        print(f"  {item.id:<16} sent {tx_hash.hex()}")
-        nonce += 1
-        time.sleep(0.2)  # avoid RPC rate limiting on rapid sequential sends
+        try:
+            tx = shop.functions.setPrice(item.id, new).build_transaction({
+                "from":     account.address,
+                "nonce":    nonce,
+                "chainId":  chain_id,
+                "gas":      80_000,
+                "gasPrice": w3.eth.gas_price,
+            })
+            signed  = account.sign_transaction(tx)
+            tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+            print(f"  ✓ {item.id:<20} tx {tx_hash.hex()}")
+            nonce += 1
+            ok    += 1
+            time.sleep(0.2)
+        except Exception as exc:
+            print(f"  ✗ {item.id:<20} FAILED: {exc}")
 
-    print("\nAll setPrice txs submitted. Confirm on-chain before assuming they're mined.")
+    print(f"\n{ok}/{len(planned)} setPrice txs submitted.")
+    if ok:
+        print("Confirm on-chain before assuming they're mined.")
 
 
 if __name__ == "__main__":
