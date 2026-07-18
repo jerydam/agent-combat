@@ -163,7 +163,7 @@ CATALOG: list[ItemDef] = [
     ItemDef("av_valkyrie", "skin", "Valkyrie", "Spear of the north", 1000),
     ItemDef("av_monk", "skin", "Monk", "A hundred parries a day", 1000),
     ItemDef("av_cyber", "skin", "Cyber Duelist", "Neon augmented fighter", 1200),
-    ItemDef("av_champion", "skin", "Champion", "Golden crown of the arena", 2000),
+    
     # ---- new additions pack (mid-high tier) ----
     ItemDef("av_phantom",   "skin", "Phantom",   "Purple void ghost. Strikes from the abyss.",             1500),
     ItemDef("av_berserker", "skin", "Berserker", "Blazing orange rage fighter. High-ATK playstyle.",       1500),
@@ -172,6 +172,7 @@ CATALOG: list[ItemDef] = [
     ItemDef("av_ironclad",  "skin", "Ironclad",  "Silver/gunmetal tank. DEF-heavy and immovable.",         2000),
     ItemDef("av_oracle",    "skin", "Oracle",    "Purple psychic seer. Sees your next move already.",      2000),
     ItemDef("av_warlord",   "skin", "Warlord",   "Gold-trimmed armored commander. Prestige tournament feel.", 2000),
+    ItemDef("av_champion", "skin", "Champion", "Golden crown of the arena", 2000),
     ItemDef("av_ranger_red",  "skin", "Red Ranger",  "Bold sentai front-liner. Aggressive and fearless.",         2500),
     ItemDef("av_ranger_blue", "skin", "Blue Ranger",  "Cool-headed sentai tactician. Calm under pressure.",        2500),
     ItemDef("av_ranger_gold", "skin", "Gold Ranger",  "Elite prestige variant. Reserved for tournament legends.",  4000),
