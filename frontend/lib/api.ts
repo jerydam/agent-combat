@@ -34,6 +34,24 @@ export const api = {
 
   agents: (owner?: string) =>
     get<Agent[]>(`/agents${owner ? `?owner=${owner.toLowerCase()}` : ''}`),
+  /** Backfill this wallet's mints straight from the chain (recovers
+   *  agents the listener missed while the backend was down). */
+  syncAgents: (owner: string) =>
+    post<{ found: number; added: number }>('/agents/sync', { owner }),
+  inventory: (wallet: string) =>
+    get<{ points: number; items: { id: number; item_id: string; source: string; consumed: boolean }[] }>(
+      `/market/inventory/${wallet}`,
+    ),
+  marketCatalog: () =>
+    get<{
+      points_per_usd: number;
+      bot_usd_price: number;
+      items: {
+        id: string; kind: 'skin' | 'boost' | 'power'; name: string; desc: string;
+        point_price: number; usd_price: number; bot_price_wei: string;
+        boost: number[] | null; power: Record<string, number> | null;
+      }[];
+    }>('/market/catalog'),
   agent: (id: number) => get<Agent>(`/agents/${id}`),
   preview: (id: number, opponentId: number, seed: number) =>
     get<BattleLog>(`/agents/${id}/preview?opponent_id=${opponentId}&seed=${seed}`),

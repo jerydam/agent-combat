@@ -21,7 +21,8 @@ export function LandingView({ onEnter }: LandingViewProps) {
       {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-b from-card/80 to-background/40 px-6 py-20 text-center sm:px-12">
         <div className="pointer-events-none absolute inset-0 bg-grid opacity-20" />
-        <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/20 blur-[100px]" />
+        <div className="pointer-events-none absolute left-1/4 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-primary/20 blur-[100px]" />
+        <div className="pointer-events-none absolute left-3/4 top-0 h-64 w-64 -translate-x-1/2 rounded-full bg-accent/15 blur-[100px]" />
 
         <div className="relative">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-xs font-medium text-primary">
@@ -34,10 +35,15 @@ export function LandingView({ onEnter }: LandingViewProps) {
             <img
               src="/logo.png"
               alt="Agent Combat"
-              className="h-40 w-40 sm:h-52 sm:w-52 drop-shadow-[0_0_40px_rgba(20,184,166,0.3)]"
+              className="h-40 w-40 sm:h-52 sm:w-52 drop-shadow-[0_0_40px_hsl(204_95%_53%/0.35)]"
               draggable={false}
             />
           </div>
+          <h1 className="font-display text-4xl font-black tracking-widest sm:text-5xl">
+            <span className="text-primary text-glow">äGENT</span>{' '}
+            <span className="text-accent text-glow-accent">çOMBAT</span>
+          </h1>
+          <div className="split-line mx-auto mt-4 w-64" />
 
           <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
             Create, train, and battle autonomous AI-powered NFT agents. A living onchain

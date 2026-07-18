@@ -24,11 +24,24 @@ export interface StateMsg {
   events: any[];
 }
 
+export interface RewardInfo {
+  points: number;
+  total_points: number;
+  won: boolean;
+  leveled_up: boolean;
+}
+
 export type ServerMsg =
   | { kind: 'countdown'; n: number }
   | { kind: 'fight' }
   | StateMsg
-  | { kind: 'result'; winner: number; log: any };
+  | {
+      kind: 'result';
+      winner: number;
+      win_reason?: 'ko' | 'score' | 'hp' | 'tiebreak';
+      log: any;
+      reward?: RewardInfo;
+    };
 
 export function combatWsUrl(params: Record<string, string | number>): string {
   const api = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';

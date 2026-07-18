@@ -1,5 +1,8 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
@@ -49,7 +52,7 @@ async def list_agents(
 ):
     q = select(AgentCache).limit(limit)
     if owner:
-        q = q.where(AgentCache.owner == owner)
+        q = q.where(func.lower(AgentCache.owner) == owner.lower())
     agents = (await db.execute(q)).scalars().all()
     return await _with_skins(db, agents)
 
@@ -77,3 +80,64 @@ async def preview_battle(
     if a is None or b is None:
         raise HTTPException(404, "Agent not found")
     return simulate(_to_fighter(a), _to_fighter(b), seed)
+
+
+class SyncBody(BaseModel):
+    owner: str
+
+
+@router.post("/sync")
+async def sync_from_chain(body: SyncBody, db: AsyncSession = Depends(get_db)):
+    """Mirror this wallet's minted agents straight from the chain.
+
+    The listener only indexes blocks after it boots, so a mint made while
+    the backend was down never reaches the cache. The dashboard calls this
+    when it looks empty (and after every mint) to backfill from AgentMinted
+    logs filtered by owner.
+    """
+    from ..config import get_settings
+    from ..chain.client import get_contracts, get_w3
+
+    s = get_settings()
+    if not (s.rpc_url and s.agent_nft_address):
+        raise HTTPException(503, "Chain not configured")
+
+    def _scan() -> list[dict]:
+        w3 = get_w3()
+        nft = get_contracts(w3)[0]
+        events = nft.events.AgentMinted().get_logs(
+            from_block=0,
+            argument_filters={"owner": w3.to_checksum_address(body.owner)},
+        )
+        out = []
+        for ev in events:
+            a = ev["args"]
+            try:  # live stats beat mint-time stats (boosts, levels)
+                (st, name) = nft.functions.getAgent(a["tokenId"]).call()
+                atk, dfs, spd, intel, level, wins, losses, xp, _lb, pers, _t = st
+                out.append(dict(token_id=a["tokenId"], name=name,
+                                personality=pers, attack=atk, defense=dfs,
+                                speed=spd, intelligence=intel, level=level))
+            except Exception:
+                out.append(dict(token_id=a["tokenId"], name=a["name"],
+                                personality=a["personality"], attack=a["attack"],
+                                defense=a["defense"], speed=a["speed"],
+                                intelligence=a["intelligence"], level=1))
+        return out
+
+    try:
+        found = await asyncio.get_event_loop().run_in_executor(None, _scan)
+    except Exception as exc:
+        raise HTTPException(502, f"Chain scan failed: {exc}")
+
+    added = 0
+    for rec in found:
+        existing = await db.get(AgentCache, rec["token_id"])
+        if existing is None:
+            db.add(AgentCache(owner=body.owner.lower(), **rec))
+            added += 1
+        else:
+            existing.owner = body.owner.lower()
+    await db.commit()
+    return {"found": len(found), "added": added}
+

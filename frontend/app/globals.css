@@ -2,44 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   AGENT COMBAT — theme lifted straight from the logo:
+   electric blue (player side) / circuit orange (enemy side)
+   on gunmetal black, with brushed-steel type.
+   ============================================================ */
+
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 96%;
-    --card: 222 40% 9%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 40% 9%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 173 80% 45%;
-    --primary-foreground: 222 47% 6%;
-    --secondary: 222 30% 14%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 222 30% 14%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 199 89% 48%;
-    --accent-foreground: 222 47% 6%;
-    --destructive: 0 72% 51%;
+    --background: 220 45% 4%;          /* near-black blue */
+    --foreground: 210 25% 92%;         /* brushed steel */
+    --card: 219 38% 7%;
+    --card-foreground: 210 25% 92%;
+    --popover: 219 38% 7%;
+    --popover-foreground: 210 25% 92%;
+    --primary: 204 95% 53%;            /* electric blue — YOU */
+    --primary-foreground: 220 45% 5%;
+    --secondary: 218 28% 12%;
+    --secondary-foreground: 210 25% 92%;
+    --muted: 218 28% 12%;
+    --muted-foreground: 213 14% 62%;
+    --accent: 30 100% 52%;             /* circuit orange — THEM */
+    --accent-foreground: 220 45% 5%;
+    --destructive: 4 84% 55%;
     --destructive-foreground: 210 40% 98%;
-    --success: 142 71% 45%;
-    --success-foreground: 222 47% 6%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 222 47% 6%;
-    --border: 222 30% 18%;
-    --input: 222 30% 16%;
-    --ring: 173 80% 45%;
-    --chart-1: 173 80% 45%;
-    --chart-2: 199 89% 48%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 142 71% 45%;
-    --chart-5: 0 72% 51%;
+    --success: 152 70% 45%;
+    --success-foreground: 220 45% 5%;
+    --warning: 42 100% 55%;
+    --warning-foreground: 220 45% 5%;
+    --border: 217 26% 15%;
+    --input: 217 26% 13%;
+    --ring: 204 95% 53%;
+    --chart-1: 204 95% 53%;
+    --chart-2: 30 100% 52%;
+    --chart-3: 42 100% 55%;
+    --chart-4: 152 70% 45%;
+    --chart-5: 4 84% 55%;
     --radius: 0.75rem;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -48,23 +52,64 @@
 }
 
 @layer utilities {
+  /* -------- glows: blue for you, orange for the opponent -------- */
   .text-glow {
-    text-shadow: 0 0 20px hsl(var(--primary) / 0.5), 0 0 40px hsl(var(--primary) / 0.2);
+    text-shadow: 0 0 18px hsl(var(--primary) / 0.55), 0 0 44px hsl(var(--primary) / 0.25);
   }
   .text-glow-accent {
-    text-shadow: 0 0 20px hsl(var(--accent) / 0.5), 0 0 40px hsl(var(--accent) / 0.2);
+    text-shadow: 0 0 18px hsl(var(--accent) / 0.55), 0 0 44px hsl(var(--accent) / 0.25);
   }
+  .text-steel {
+    background: linear-gradient(180deg, #f2f5f8 0%, #b9c2cc 55%, #8b96a3 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* -------- the signature: the logo's diagonal blue/orange split -------- */
+  .split-line {
+    height: 2px;
+    background: linear-gradient(90deg,
+      transparent, hsl(var(--primary)) 35%, hsl(var(--primary)) 49%,
+      hsl(var(--accent)) 51%, hsl(var(--accent)) 65%, transparent);
+  }
+  .split-ring {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+      linear-gradient(135deg, hsl(var(--primary) / 0.7), hsl(var(--border)) 45%,
+        hsl(var(--border)) 55%, hsl(var(--accent) / 0.7)) border-box;
+  }
+  .bg-vs-split {
+    background: linear-gradient(105deg,
+      hsl(var(--primary) / 0.16) 0 49.6%,
+      hsl(var(--foreground) / 0.25) 49.6% 50.4%,
+      hsl(var(--accent) / 0.16) 50.4% 100%);
+  }
+
+  /* -------- surfaces -------- */
   .bg-grid {
     background-image:
       linear-gradient(hsl(var(--border) / 0.4) 1px, transparent 1px),
       linear-gradient(90deg, hsl(var(--border) / 0.4) 1px, transparent 1px);
     background-size: 48px 48px;
   }
+  .bg-hexes {
+    background-image: radial-gradient(hsl(var(--border) / 0.55) 1px, transparent 1.5px);
+    background-size: 22px 22px;
+  }
   .bg-arena {
     background:
-      radial-gradient(ellipse 80% 50% at 50% -10%, hsl(var(--primary) / 0.12), transparent),
-      radial-gradient(ellipse 60% 40% at 80% 100%, hsl(var(--accent) / 0.10), transparent),
-      radial-gradient(ellipse 60% 40% at 20% 100%, hsl(var(--primary) / 0.08), transparent);
+      radial-gradient(ellipse 70% 45% at 18% 0%, hsl(var(--primary) / 0.14), transparent),
+      radial-gradient(ellipse 70% 45% at 82% 0%, hsl(var(--accent) / 0.12), transparent),
+      radial-gradient(ellipse 90% 40% at 50% 110%, hsl(var(--primary) / 0.06), transparent);
+  }
+  .bg-stage {
+    background:
+      radial-gradient(ellipse 60% 70% at 12% 50%, hsl(var(--primary) / 0.14), transparent 60%),
+      radial-gradient(ellipse 60% 70% at 88% 50%, hsl(var(--accent) / 0.14), transparent 60%),
+      radial-gradient(ellipse 120% 45% at 50% 108%, hsl(218 30% 10%), transparent),
+      hsl(var(--background));
   }
   .glass {
     background: hsl(var(--card) / 0.6);
@@ -79,43 +124,46 @@
   }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
+  0%,100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
   50% { box-shadow: 0 0 24px 4px hsl(var(--primary) / 0.3); }
 }
+@keyframes pulse-glow-accent {
+  0%,100% { box-shadow: 0 0 0 0 hsl(var(--accent) / 0.4); }
+  50% { box-shadow: 0 0 24px 4px hsl(var(--accent) / 0.3); }
+}
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-6px); }
-  40% { transform: translateX(6px); }
-  60% { transform: translateX(-4px); }
-  80% { transform: translateX(4px); }
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)}
+  40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)}
 }
 @keyframes slash {
-  0% { transform: translateX(-120%) rotate(-20deg); opacity: 0; }
-  40% { opacity: 1; }
-  100% { transform: translateX(120%) rotate(-20deg); opacity: 0; }
+  0%{transform:translateX(-120%) rotate(-20deg);opacity:0}
+  40%{opacity:1} 100%{transform:translateX(120%) rotate(-20deg);opacity:0}
 }
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes fade-up { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes scale-in { from{opacity:0;transform:scale(.92)} to{opacity:1;transform:scale(1)} }
+@keyframes scan { 0%{transform:translateY(-100%)} 100%{transform:translateY(400%)} }
+@keyframes vs-slam {
+  0%{transform:scale(2.6);opacity:0} 60%{transform:scale(.95);opacity:1} 100%{transform:scale(1)}
 }
-@keyframes scale-in {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
-}
-@keyframes scan {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(400%); }
-}
+@keyframes slide-in-l { from{transform:translateX(-60%);opacity:0} to{transform:none;opacity:1} }
+@keyframes slide-in-r { from{transform:translateX(60%);opacity:0} to{transform:none;opacity:1} }
 
 .animate-float { animation: float 4s ease-in-out infinite; }
 .animate-pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
-.animate-shake { animation: shake 0.4s ease-in-out; }
-.animate-slash { animation: slash 0.5s ease-out; }
-.animate-fade-up { animation: fade-up 0.5s ease-out both; }
-.animate-scale-in { animation: scale-in 0.35s ease-out both; }
+.animate-pulse-glow-accent { animation: pulse-glow-accent 2.5s ease-in-out infinite; }
+.animate-shake { animation: shake .4s ease-in-out; }
+.animate-slash { animation: slash .5s ease-out; }
+.animate-fade-up { animation: fade-up .5s ease-out both; }
+.animate-scale-in { animation: scale-in .35s ease-out both; }
 .animate-scan { animation: scan 2s linear infinite; }
+.animate-vs-slam { animation: vs-slam .45s cubic-bezier(.2,1.4,.4,1) both; }
+.animate-slide-in-l { animation: slide-in-l .4s ease-out both; }
+.animate-slide-in-r { animation: slide-in-r .4s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,.animate-pulse-glow,.animate-pulse-glow-accent,.animate-scan,
+  .animate-vs-slam,.animate-slide-in-l,.animate-slide-in-r,
+  .animate-shake,.animate-slash { animation: none; }
+}

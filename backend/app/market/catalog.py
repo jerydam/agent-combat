@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import AgentCache, Battle, Fixture, SoloGame
+from ..models import (AgentCache, Battle, CombatMatchRecord, Fixture,
+                      SoloGame)
 
 
 # ------------------------------------------------------------ achievements
@@ -64,7 +65,16 @@ async def evaluate(db: AsyncSession, wallet: str) -> set[str]:
     if len(agents) >= 5:
         earned.add("full_roster")
 
-    total_wins = sum(a.wins for a in agents)
+    combat_wins = (
+        await db.execute(
+            select(func.count()).select_from(CombatMatchRecord).where(
+                CombatMatchRecord.wallet == wallet,
+                CombatMatchRecord.won.is_(True),
+                CombatMatchRecord.agent_id.is_(None),  # agent wins counted below
+            )
+        )
+    ).scalar() or 0
+    total_wins = sum(a.wins for a in agents) + combat_wins
     if total_wins >= 1:
         earned.add("first_win")
     if total_wins >= 10:
@@ -91,9 +101,14 @@ async def evaluate(db: AsyncSession, wallet: str) -> set[str]:
                 )
             )
         ).scalar() or 0
-        if solo_wins >= 1:
+        if solo_wins + combat_wins >= 1:
             earned.add("bot_slayer")
-        if solo_wins >= 10:
+        if solo_wins + combat_wins >= 10:
+            earned.add("bot_slayer_10")
+    else:
+        if combat_wins >= 1:
+            earned.add("bot_slayer")
+        if combat_wins >= 10:
             earned.add("bot_slayer_10")
 
         played = (
@@ -139,16 +154,16 @@ class ItemDef:
 
 CATALOG: list[ItemDef] = [
     # ---- skins (human-form avatars; asset = /avatars/{id}.svg) ----
-    ItemDef("av_ronin", "skin", "Ronin", "Wandering blade in crimson", 100),
-    ItemDef("av_guardian", "skin", "Guardian", "Tower-shield sentinel", 100),
-    ItemDef("av_striker", "skin", "Striker", "Bare-knuckle brawler", 100),
-    ItemDef("av_mystic", "skin", "Mystic", "Mind over muscle", 150),
-    ItemDef("av_captain", "skin", "Captain", "Decorated arena veteran", 150),
-    ItemDef("av_shadow", "skin", "Shadow", "Seen only when striking", 200),
-    ItemDef("av_valkyrie", "skin", "Valkyrie", "Spear of the north", 200),
-    ItemDef("av_monk", "skin", "Monk", "A hundred parries a day", 200),
-    ItemDef("av_cyber", "skin", "Cyber Duelist", "Neon augmented fighter", 300),
-    ItemDef("av_champion", "skin", "Champion", "Golden crown of the arena", 500),
+    ItemDef("av_ronin", "skin", "Ronin", "Wandering blade in crimson", 600),
+    ItemDef("av_guardian", "skin", "Guardian", "Tower-shield sentinel", 600),
+    ItemDef("av_striker", "skin", "Striker", "Bare-knuckle brawler", 600),
+    ItemDef("av_mystic", "skin", "Mystic", "Mind over muscle", 800),
+    ItemDef("av_captain", "skin", "Captain", "Decorated arena veteran", 800),
+    ItemDef("av_shadow", "skin", "Shadow", "Seen only when striking", 1000),
+    ItemDef("av_valkyrie", "skin", "Valkyrie", "Spear of the north", 1000),
+    ItemDef("av_monk", "skin", "Monk", "A hundred parries a day", 1000),
+    ItemDef("av_cyber", "skin", "Cyber Duelist", "Neon augmented fighter", 1200),
+    ItemDef("av_champion", "skin", "Champion", "Golden crown of the arena", 2000),
     # ---- new additions pack (mid-high tier) ----
     ItemDef("av_phantom",   "skin", "Phantom",   "Purple void ghost. Strikes from the abyss.",             1500),
     ItemDef("av_berserker", "skin", "Berserker", "Blazing orange rage fighter. High-ATK playstyle.",       1500),
@@ -166,18 +181,42 @@ CATALOG: list[ItemDef] = [
     ItemDef("av_titan",       "skin", "Titan",        "Hulking green tank. Immovable. Unbreakable.",               3500),
 
     # ---- boosts (on-chain, permanent) ----
-    ItemDef("boost_str", "boost", "Strength Serum", "+5 ATK on-chain", 250, boost=(5, 0, 0, 0)),
-    ItemDef("boost_grit", "boost", "Grit Serum", "+5 DEF on-chain", 250, boost=(0, 5, 0, 0)),
-    ItemDef("boost_agility", "boost", "Agility Serum", "+5 SPD on-chain", 250, boost=(0, 0, 5, 0)),
-    ItemDef("boost_mind", "boost", "Mind Serum", "+5 INT on-chain", 250, boost=(0, 0, 0, 5)),
-    ItemDef("boost_omni", "boost", "Omni Serum", "+3 to every stat on-chain", 600, boost=(3, 3, 3, 3)),
+    ItemDef("boost_str", "boost", "Strength Serum", "+5 ATK on-chain", 800, boost=(5, 0, 0, 0)),
+    ItemDef("boost_grit", "boost", "Grit Serum", "+5 DEF on-chain", 800, boost=(0, 5, 0, 0)),
+    ItemDef("boost_agility", "boost", "Agility Serum", "+5 SPD on-chain", 800, boost=(0, 0, 5, 0)),
+    ItemDef("boost_mind", "boost", "Mind Serum", "+5 INT on-chain", 800, boost=(0, 0, 0, 5)),
+    ItemDef("boost_omni", "boost", "Omni Serum", "+3 to every stat on-chain", 2000, boost=(3, 3, 3, 3)),
     # ---- powers (equippable combat perks, one active per agent) ----
-    ItemDef("pw_second_wind", "power", "Second Wind", "+20% stamina regen", 300,
+    ItemDef("pw_second_wind", "power", "Second Wind", "+20% stamina regen", 1000,
             power={"regen_mult": 1.2}),
-    ItemDef("pw_iron_guard", "power", "Iron Guard", "Blocks absorb 6% more", 300,
+    ItemDef("pw_iron_guard", "power", "Iron Guard", "Blocks absorb 6% more", 1000,
             power={"block_bonus": 0.06}),
-    ItemDef("pw_focus_core", "power", "Focus Core", "Parry window +40ms", 400,
+    ItemDef("pw_focus_core", "power", "Focus Core", "Parry window +40ms", 1400,
             power={"parry_bonus_ms": 40}),
 ]
 
 ITEM_BY_ID = {i.id: i for i in CATALOG}
+
+
+# --------------------------------------------------------------- pricing
+# Exchange rule: 1000 points == 1 USD. Every item is therefore worth
+# point_price/1000 USD, payable either in points or in BOT at the current
+# BOT/USD price (settings.bot_usd_price). Minimum item price is 0.6 USD.
+
+POINTS_PER_USD = 1000
+MIN_ITEM_USD = 0.6
+
+assert all(i.point_price >= MIN_ITEM_USD * POINTS_PER_USD for i in CATALOG), \
+    "catalog violates the 0.6 USD minimum item price"
+
+
+def usd_price(item: ItemDef) -> float:
+    return item.point_price / POINTS_PER_USD
+
+
+def bot_price_wei(item: ItemDef, bot_usd: float) -> int:
+    """Price in BOT wei for the same USD value the points represent."""
+    if bot_usd <= 0:
+        return 0
+    return int(round(usd_price(item) / bot_usd * 10**18))
+

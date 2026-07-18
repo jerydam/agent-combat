@@ -68,7 +68,9 @@ def _send_tx(w3: Web3, fn) -> str:
         {
             "from": acct.address,
             "nonce": w3.eth.get_transaction_count(acct.address),
-            "chainId": s.chain_id,
+            # read from the node, not env — a CHAIN_ID typo must not brick
+            # every submitResult with an invalid-chain-id revert
+            "chainId": w3.eth.chain_id,
         }
     )
     signed = acct.sign_transaction(tx)
@@ -338,7 +340,7 @@ async def sync_minted_agents(nft, from_block: int, to_block: int) -> None:
             db.add(
                 AgentCache(
                     token_id=a["tokenId"],
-                    owner=a["owner"],
+                    owner=a["owner"].lower(),
                     name=a["name"],
                     personality=a["personality"],
                     attack=a["attack"],

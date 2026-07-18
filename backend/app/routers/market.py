@@ -23,12 +23,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db
+from ..config import get_settings
 from ..market.catalog import (
     ACHIEVEMENT_BY_ID,
     ACHIEVEMENTS,
     CATALOG,
     ITEM_BY_ID,
+    POINTS_PER_USD,
+    bot_price_wei,
     evaluate,
+    usd_price,
 )
 from ..models import AgentCache, AgentLoadout, InventoryItem, PlayerProgress
 
@@ -102,18 +106,27 @@ async def claim(body: ClaimBody, db: AsyncSession = Depends(get_db)):
 
 @router.get("/catalog")
 async def catalog():
-    return [
-        {
-            "id": i.id,
-            "kind": i.kind,
-            "name": i.name,
-            "desc": i.desc,
-            "point_price": i.point_price,
-            "boost": i.boost,
-            "power": i.power,
-        }
-        for i in CATALOG
-    ]
+    """Items with all three price views: points, USD, and BOT wei.
+    1000 points == 1 USD; BOT price = USD / settings.bot_usd_price."""
+    bot_usd = get_settings().bot_usd_price
+    return {
+        "points_per_usd": POINTS_PER_USD,
+        "bot_usd_price": bot_usd,
+        "items": [
+            {
+                "id": i.id,
+                "kind": i.kind,
+                "name": i.name,
+                "desc": i.desc,
+                "point_price": i.point_price,
+                "usd_price": round(usd_price(i), 2),
+                "bot_price_wei": str(bot_price_wei(i, bot_usd)),
+                "boost": i.boost,
+                "power": i.power,
+            }
+            for i in CATALOG
+        ],
+    }
 
 
 @router.get("/inventory/{wallet}")

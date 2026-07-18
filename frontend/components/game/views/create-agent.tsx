@@ -45,9 +45,9 @@ export function CreateAgentView() {
       });
       const minted = eventArgs<{ tokenId: bigint }>(receipt, AGENT_NFT_ABI as any, 'AgentMinted');
       toast.success('Agent minted — stats rolled on-chain!');
-      // give the indexer a beat, then land on the roster
-      await new Promise((r) => setTimeout(r, 2500));
-      await api.agents(address).catch(() => {});
+      // Don't trust the passive indexer: pull the mint into the cache
+      // directly so the dashboard shows it immediately.
+      await api.syncAgents(address).catch(() => {});
       router.push(minted ? `/agents/${minted.tokenId}` : '/dashboard');
     } catch (e: any) {
       toast.error(e?.shortMessage ?? e?.message ?? 'Mint failed');

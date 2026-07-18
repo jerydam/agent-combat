@@ -3,8 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
 import { useWallet, shortAddr } from '@/lib/wallet';
+import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Star } from 'lucide-react';
 import { Zap, Swords, Trophy, Home, Plus, Dumbbell, LogOut, Wallet, Bot, Users, Medal, Flame, Award, ShoppingBag } from 'lucide-react';
 import { Toaster } from 'sonner';
 
@@ -31,6 +34,14 @@ function isActive(pathname: string, href: string): boolean {
 export function NavShell({ children }: { children: React.ReactNode }) {
   const { connected, address, connect, connecting, disconnect } = useWallet();
   const pathname = usePathname();
+  const [points, setPoints] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!connected || !address) { setPoints(null); return; }
+    let live = true;
+    api.inventory(address).then((i) => live && setPoints(i.points)).catch(() => {});
+    return () => { live = false; };
+  }, [connected, address, pathname]);
 
   // Game screens are fully immersive: no header, no bottom nav, no padding.
   const GAME_SCREENS = ['/combat'];
@@ -41,20 +52,21 @@ export function NavShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen bg-background bg-arena">
       <div className="pointer-events-none fixed inset-0 bg-grid opacity-30" />
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-50 split-line" />
 
       <header className="sticky top-0 z-40 border-b border-border/60 glass">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5">
-            
-            <div className="text-left leading-none">
-              <img
+            <img
               src="/logo.png"
-              alt="Agent Combat"
-              className="h-10 w-10 drop-shadow-[0_0_12px_rgba(20,184,166,0.4)]"
+              alt=""
+              className="h-10 w-10 drop-shadow-[0_0_12px_hsl(204_95%_53%/0.45)]"
               draggable={false}
             />
-            </div>
+            <span className="hidden font-display text-sm font-black tracking-widest lg:block">
+              <span className="text-primary">äGENT</span>{' '}
+              <span className="text-accent">çOMBAT</span>
+            </span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
@@ -82,6 +94,12 @@ export function NavShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             {connected ? (
               <div className="flex items-center gap-2">
+                {points !== null && (
+                  <Link href="/achievements"
+                    className="split-ring flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-display text-xs font-bold text-warning">
+                    <Star className="h-3.5 w-3.5" /> {points.toLocaleString()}
+                  </Link>
+                )}
                 <div className="hidden text-right sm:block">
                   <div className="text-xs font-semibold text-foreground">Connected</div>
                   <div className="text-[10px] text-muted-foreground">{shortAddr(address)}</div>
@@ -139,6 +157,7 @@ export function NavShell({ children }: { children: React.ReactNode }) {
 
       <footer className="relative z-10 border-t border-border/40 py-6 text-center text-xs text-muted-foreground">
   <img src="/logo.png" alt="" className="mx-auto mb-2 h-6 w-6 opacity-60" draggable={false} />
+  <div className="split-line mx-auto mb-3 w-24 opacity-70" />
   Agent Combat — Autonomous AI agents competing on Botchain
 </footer>
     </div>

@@ -32,8 +32,14 @@ const SHOP_ABI = [
 
 interface Item {
   id: string; kind: 'skin' | 'boost' | 'power'; name: string; desc: string;
-  point_price: number; boost: number[] | null; power: Record<string, number> | null;
+  point_price: number; usd_price: number; bot_price_wei: string;
+  boost: number[] | null; power: Record<string, number> | null;
 }
+
+const fmtBot = (wei: string) => {
+  const n = Number(BigInt(wei) / BigInt(1e12)) / 1e6;
+  return n >= 100 ? n.toFixed(0) : n.toFixed(2);
+};
 interface InvRow { id: number; item_id: string; source: string; consumed: boolean }
 
 const KIND_ICON = { skin: Shirt, boost: FlaskConical, power: Zap } as const;
@@ -50,7 +56,7 @@ export function MarketView() {
 
   const refresh = useCallback(async () => {
     const cat = await fetch(`${API}/market/catalog`).then((r) => r.json());
-    setCatalog(cat);
+    setCatalog(Array.isArray(cat) ? cat : cat.items);
     if (address) {
       const i = await fetch(`${API}/market/inventory/${address}`).then((r) => r.json());
       setInv(i.items);
@@ -84,10 +90,16 @@ export function MarketView() {
     if (!SHOP_ADDRESS) return toast.error('Shop contract not configured');
     setBusy(`buy-${item.id}`);
     try {
-      const price = await (await import('@/lib/chain')).getPublicClient().readContract({
-        address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: 'priceOf', args: [item.id],
-      });
-      if (price === BigInt(0)) throw new Error('Not priced for BOT — redeem with points instead');
+      // On-chain price wins when the Shop has one; otherwise pay the
+      // backend-derived price (point_price/1000 USD worth of BOT).
+      let price = BigInt(0);
+      try {
+        price = await (await import('@/lib/chain')).getPublicClient().readContract({
+          address: SHOP_ADDRESS, abi: SHOP_ABI, functionName: 'priceOf', args: [item.id],
+        }) as bigint;
+      } catch { /* priceOf unavailable */ }
+      if (price === BigInt(0)) price = BigInt(item.bot_price_wei ?? '0');
+      if (price === BigInt(0)) throw new Error('No BOT price — redeem with points instead');
       await writeContract({
         address: SHOP_ADDRESS, abi: SHOP_ABI as any, functionName: 'purchase',
         args: [item.id, BigInt(0)], value: price, account: address as Address,
@@ -149,14 +161,16 @@ export function MarketView() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-wide">MARKET</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Redeem achievement points or pay BOT. Boosts write stats on-chain; skins and powers equip per agent.
+          <h1 className="font-display text-3xl font-bold tracking-wide text-steel">MARKET</h1>
+          <div className="split-line mt-2 w-32" />
+          <p className="mt-2 text-sm text-muted-foreground">
+            Pay with points or BOT — 1,000 pts = $1 of BOT, same value either way.
+            Boosts write stats on-chain; skins and powers equip per agent.
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="font-display text-xl font-bold text-amber-300">
-            <Star className="mb-0.5 mr-1 inline h-4 w-4" />{points} pts
+          <div className="split-ring rounded-lg px-3 py-1.5 font-display text-xl font-bold text-warning">
+            <Star className="mb-0.5 mr-1 inline h-4 w-4" />{points.toLocaleString()} pts
           </div>
           <Select value={targetAgent} onValueChange={setTargetAgent}>
             <SelectTrigger className="w-44 bg-background/60"><SelectValue placeholder="Target agent" /></SelectTrigger>
@@ -175,7 +189,7 @@ export function MarketView() {
           return (
             <button key={k} onClick={() => setTab(k)}
               className={cn('flex items-center gap-1.5 rounded-lg border px-4 py-2 font-display text-sm uppercase tracking-wider',
-                tab === k ? 'border-primary text-primary' : 'border-border text-muted-foreground')}>
+                tab === k ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground')}>
               <Icon className="h-4 w-4" /> {k === 'skin' ? 'Avatars' : k === 'boost' ? 'Boosts' : 'Powers'}
             </button>
           );
@@ -202,7 +216,12 @@ export function MarketView() {
                     {item.name}{has && <Check className="h-4 w-4 text-primary" />}
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">{item.desc}</p>
-                  <p className="mt-1 text-xs font-semibold text-amber-300">{item.point_price} pts</p>
+                  <p className="mt-1 text-xs font-semibold">
+                    <span className="text-warning">{item.point_price.toLocaleString()} pts</span>
+                    <span className="mx-1 text-muted-foreground">·</span>
+                    <span className="text-primary">{fmtBot(item.bot_price_wei ?? '0')} BOT</span>
+                    <span className="ml-1 text-muted-foreground">(${item.usd_price?.toFixed(2)})</span>
+                  </p>
                 </div>
               </div>
               <div className="mt-3 flex gap-2">
@@ -212,7 +231,7 @@ export function MarketView() {
                       {busy === `redeem-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Redeem'}
                     </Button>
                     <Button size="sm" variant="outline" disabled={!!busy} onClick={() => buyWithBot(item)} className="flex-1">
-                      {busy === `buy-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Buy · BOT'}
+                      {busy === `buy-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : `${fmtBot(item.bot_price_wei ?? '0')} BOT`}
                     </Button>
                   </>
                 )}

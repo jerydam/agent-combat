@@ -188,3 +188,27 @@ class Battle(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class CombatMatchRecord(Base):
+    """One finished real-time combat match (vs bot), with rewards granted.
+
+    This is what makes wins/points move after a fight: the combat room's
+    on_finish writes a row here, bumps PlayerProgress.points, and (when a
+    minted agent fought) AgentCache wins/losses.
+    """
+
+    __tablename__ = "combat_matches"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    wallet: Mapped[str] = mapped_column(String(42), index=True, default="")
+    agent_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    won: Mapped[bool] = mapped_column(default=False)
+    win_reason: Mapped[str] = mapped_column(String(12), default="")
+    my_score: Mapped[int] = mapped_column(Integer, default=0)
+    opp_score: Mapped[int] = mapped_column(Integer, default=0)
+    points_awarded: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+

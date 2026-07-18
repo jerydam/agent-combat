@@ -38,7 +38,9 @@ class Room:
     bots: list[BotController] = field(default_factory=list)
     started: bool = False
     task: asyncio.Task | None = None
-    on_finish: object | None = None  # async callback(room) -> None
+    on_finish: object | None = None  # async callback(room) -> dict | None
+    wallet: str = ""       # player wallet (slot 0), for rewards
+    agent_id: int | None = None  # minted agent fighting in slot 0, if any
 
 
 class RoomManager:
@@ -116,16 +118,22 @@ class RoomManager:
                     bot.update()
                 await self._broadcast(room, {"kind": "state", **m.snapshot()})
 
+            extra: dict = {}
+            if room.on_finish is not None:
+                try:
+                    extra = await room.on_finish(room) or {}  # type: ignore[operator]
+                except Exception:
+                    log.exception("Room %s on_finish failed", room.room_id)
             await self._broadcast(
                 room,
                 {
                     "kind": "result",
                     "winner": m.winner,
+                    "win_reason": m.win_reason,
                     "log": m.result_log(),
+                    **extra,
                 },
             )
-            if room.on_finish is not None:
-                await room.on_finish(room)  # type: ignore[operator]
         except Exception:
             log.exception("Room %s crashed", room.room_id)
         finally:

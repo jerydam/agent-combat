@@ -155,6 +155,7 @@ class CombatMatch:
         self.t: float = 0.0
         self.over: bool = False
         self.winner: int | None = None
+        self.win_reason: str = ""  # ko | score | hp | tiebreak
         self.rng = random.Random(seed)
         self.events: list[dict] = []  # this tick, for broadcasting
         self.log: list[dict] = []  # full trace -> movesHash
@@ -224,6 +225,8 @@ class CombatMatch:
                 f.block_opened_at = -1.0
 
         for idx in (0, 1):
+            if self.over:
+                break  # a KO this tick ends the fight; no post-death swings
             f = self.f[idx]
             if f.phase == "windup" and now >= f.phase_ends_at:
                 if now < f.staggered_until:
@@ -239,10 +242,13 @@ class CombatMatch:
             sa, sb = self.score(0), self.score(1)
             if sa != sb:
                 self.winner = 0 if sa > sb else 1
+                self.win_reason = "score"
             elif self.f[0].hp != self.f[1].hp:
                 self.winner = 0 if self.f[0].hp > self.f[1].hp else 1
+                self.win_reason = "hp"
             else:
                 self.winner = 0 if self.f[0].stats.speed >= self.f[1].stats.speed else 1
+                self.win_reason = "tiebreak"
             self._push({"t": round(now), "kind": "time", "winner": self.winner})
 
     # ------------------------------------------------------------ internal
@@ -333,6 +339,7 @@ class CombatMatch:
             if self.f[idx].hp <= 0 and not self.over:
                 self.over = True
                 self.winner = 1 - idx
+                self.win_reason = "ko"
                 self._push({"t": round(now), "kind": "ko", "who": idx})
 
     def _push(self, e: dict) -> None:
@@ -364,6 +371,7 @@ class CombatMatch:
             "mode": "realtime",
             "duration_ms": round(self.t),
             "winner": self.winner,
+            "win_reason": self.win_reason,
             "fighters": [
                 {
                     "token_id": f.stats.token_id,

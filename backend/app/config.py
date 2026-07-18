@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # Backend game-signer key (NEVER the deployer key)
     game_server_private_key: str = ""
 
+    # Market: BOT token price in USD (1000 points == 1 USD; item BOT
+    # prices are derived from this). Override with BOT_USD_PRICE.
+    bot_usd_price: float = 0.10
+
     # Listener
     poll_interval_seconds: float = 2.0
 
@@ -28,6 +32,9 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        # never crash the whole backend because the env has extra keys
+        # (deployer address, marketplace address, etc.)
+        extra = "ignore"
 
 
 @lru_cache
