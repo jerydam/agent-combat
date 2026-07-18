@@ -49,7 +49,7 @@ backend/.coverage
 backend/coverage.xml
 backend/logs/
 backend/*.log
-
+/venv
 # ════════════════════════════════════════════════════════════════
 #  CIRCUITS  (Circom / Node)
 # ════════════════════════════════════════════════════════════════
