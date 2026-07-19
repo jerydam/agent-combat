@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +9,11 @@ from ..database import get_db
 from ..models import AgentCache, SoloGame
 
 router = APIRouter(prefix="/solo", tags=["solo"])
+
+# Mirrors SoloArena.sol's RECLAIM_AFTER. A pending game older than this
+# can have its stake pulled back by the player via reclaim(gameId) —
+# on-chain, no backend involvement needed.
+RECLAIM_AFTER = timedelta(hours=1)
 
 
 @router.get("/bots")
@@ -40,13 +47,20 @@ async def list_bots(db: AsyncSession = Depends(get_db)):
 @router.get("/games")
 async def list_games(
     agent_id: int | None = None,
+    player: str | None = None,
+    status: str | None = None,
     limit: int = Query(20, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     q = select(SoloGame).order_by(SoloGame.game_id.desc()).limit(limit)
     if agent_id is not None:
         q = q.where(SoloGame.agent_id == agent_id)
+    if player is not None:
+        q = q.where(SoloGame.player == player.lower())
+    if status is not None:
+        q = q.where(SoloGame.status == status)
     rows = (await db.execute(q)).scalars().all()
+    cutoff = datetime.now(timezone.utc) - RECLAIM_AFTER
     return [
         {
             "game_id": g.game_id,
@@ -56,6 +70,14 @@ async def list_games(
             "status": g.status,
             "player_won": g.player_won,
             "tx_hash": g.tx_hash,
+            # True once the fight never got a live result AND the
+            # contract's 1h window has passed — the player can pull the
+            # stake back themselves with SoloArena.reclaim(gameId).
+            "reclaimable": (
+                g.status == "pending"
+                and g.created_at is not None
+                and g.created_at < cutoff
+            ),
         }
         for g in rows
     ]

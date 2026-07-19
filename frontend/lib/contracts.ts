@@ -121,6 +121,31 @@ export const SOLO_ARENA_ABI = [
     outputs: [{ name: 'gameId', type: 'uint256' }],
   },
   {
+    // Recovers a stake whose fight never got a live result submitted
+    // (closed tab, connection dropped, backend down). Only the game's
+    // own player can call it, and only once RECLAIM_AFTER (1h) has
+    // passed since play(). No backend involvement at all.
+    name: 'reclaim',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'gameId', type: 'uint256' }],
+    outputs: [],
+  },
+  {
+    name: 'getGame',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'gameId', type: 'uint256' }],
+    outputs: [
+      { name: 'player', type: 'address' },
+      { name: 'agentId', type: 'uint256' },
+      { name: 'botId', type: 'uint256' },
+      { name: 'stake', type: 'uint256' },
+      { name: 'status', type: 'uint8' }, // 0 None 1 Pending 2 Resolved 3 Reclaimed
+      { name: 'playerWon', type: 'bool' },
+    ],
+  },
+  {
     name: 'SoloPlayed',
     type: 'event',
     anonymous: false,
@@ -131,6 +156,16 @@ export const SOLO_ARENA_ABI = [
       { name: 'player', type: 'address', indexed: false },
       { name: 'stake', type: 'uint128', indexed: false },
       { name: 'seed', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    name: 'SoloReclaimed',
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      { name: 'gameId', type: 'uint256', indexed: true },
+      { name: 'player', type: 'address', indexed: true },
+      { name: 'stake', type: 'uint256', indexed: false },
     ],
   },
 ] as const;

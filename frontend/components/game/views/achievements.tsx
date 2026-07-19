@@ -65,7 +65,8 @@ export function AchievementsView() {
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-wide">ACHIEVEMENT ROOM</h1>
+          <h1 className="font-display text-3xl font-bold tracking-wide text-steel">ACHIEVEMENT ROOM</h1>
+          <div className="split-line mt-2 w-32" />
           <p className="mt-1 text-sm text-muted-foreground">
             Earn points, spend them in the Market on skins, boosts, and powers.
           </p>
@@ -93,7 +94,7 @@ export function AchievementsView() {
               a.claimed
                 ? 'border-amber-400/40 bg-amber-400/5'
                 : a.earned
-                  ? 'border-primary/50 bg-primary/5 shadow-[0_0_16px_rgba(20,184,166,0.12)]'
+                  ? 'border-primary/50 bg-primary/5 shadow-[0_0_16px_hsl(204_95%_53%/0.18)]'
                   : 'border-border bg-card/40 opacity-60',
             )}
           >

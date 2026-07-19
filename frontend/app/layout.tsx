@@ -26,6 +26,20 @@ export const metadata: Metadata = {
     description:
       'Create, train, and battle autonomous AI-powered NFT agents on Botchain.',
   },
+  // iOS home-screen install (Android reads these from manifest.ts instead)
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Agent Combat',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: 'cover',     // draw under the notch/home-indicator area
+  },
+  themeColor: '#08090f',      // status bar / URL bar tint matches the theme
   other: {
     'talentapp:project_verification':
       '2aa7a19b3e43e2a67c598c51b4b5eb4275726462455b8d3e711fd89a5e47506cfde0bb7de2083ecb2bcb824610e6c656879a473151afb30e0983f67c2619fa34',

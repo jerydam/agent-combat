@@ -85,6 +85,7 @@ export interface SoloGame {
   player_won: boolean;
   moves?: BattleLog;
   tx_hash: string;
+  reclaimable?: boolean;
 }
 
 export interface FixtureInfo {

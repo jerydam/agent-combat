@@ -68,6 +68,11 @@ export const api = {
   soloGames: (agentId?: number) =>
     get<SoloGame[]>(`/solo/games${agentId != null ? `?agent_id=${agentId}` : ''}`),
   soloGame: (id: number) => get<SoloGame>(`/solo/games/${id}`),
+  /** This wallet's stakes whose fight never got a live result and are
+   *  past the contract's 1h window — reclaimable via SoloArena.reclaim(). */
+  reclaimableSolo: (player: string) =>
+    get<SoloGame[]>(`/solo/games?player=${player.toLowerCase()}&status=pending&limit=50`)
+      .then((rows) => rows.filter((r: any) => r.reclaimable)),
 
   leagues: () => get<LeagueInfo[]>('/leagues'),
   league: (id: number) => get<LeagueInfo>(`/leagues/${id}`),

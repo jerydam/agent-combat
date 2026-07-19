@@ -126,7 +126,8 @@ export function ArenaView() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide">ARENA</h1>
+        <h1 className="font-display text-3xl font-bold tracking-wide text-steel">ARENA</h1>
+          <div className="split-line mt-2 w-32" />
         <p className="mt-1 text-sm text-muted-foreground">
           1v1 duels — free quick matches, or challenge with a BOT stake. Winner takes the pot.
         </p>

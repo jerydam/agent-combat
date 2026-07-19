@@ -22,6 +22,48 @@ import { useLandscapeGameMode } from '@/lib/game-mode';
 
 interface FloatingNum { id: number; slot: 0 | 1; text: string; cls: string }
 
+/**
+ * On iOS (and anywhere screen.orientation.lock is unsupported), the
+ * arena is faked into landscape with a CSS rotate(90deg) transform
+ * while the phone is physically portrait. The native OS number pad is
+ * an overlay the browser controls — it renders upright in the real,
+ * portrait orientation and has no idea the page content is rotated, so
+ * it shows up sideways/disconnected from the input. CSS can't fix that;
+ * only NOT summoning the native keyboard can. This in-app keypad
+ * renders inside the already-rotated container, so it appears correctly
+ * oriented like everything else on screen.
+ */
+function StakeKeypad({ value, onChange, onClose }: { value: string; onChange: (v: string) => void; onClose: () => void }) {
+  const press = (k: string) => {
+    if (k === 'back') return onChange(value.slice(0, -1));
+    if (k === 'clear') return onChange('');
+    if (k === '.' && value.includes('.')) return;
+    onChange(value + k);
+  };
+  return (
+    <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-72 rounded-2xl border border-border bg-card p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <span className="font-display text-xs tracking-widest text-muted-foreground">STAKE (BOT)</span>
+          <button onClick={onClose} className="text-muted-foreground"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="mb-3 rounded-lg border border-border bg-input px-3 py-2 text-right font-display text-2xl tabular-nums">
+          {value || '0'}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'].map((k) => (
+            <button key={k} onClick={() => press(k)}
+              className="rounded-lg border border-border bg-secondary/50 py-3 font-display text-lg active:bg-secondary">
+              {k === 'back' ? '⌫' : k}
+            </button>
+          ))}
+        </div>
+        <Button className="mt-3 w-full font-display" onClick={onClose}>DONE</Button>
+      </div>
+    </div>
+  );
+}
+
 const WIN_REASON_TEXT: Record<string, [string, string]> = {
   ko:       ['KNOCKOUT', 'You dropped your opponent to 0 HP — a KO ends the fight instantly, whatever the score.'],
   score:    ['ON POINTS', 'Time ran out — higher score (damage + defends + parries) takes it.'],
@@ -55,9 +97,12 @@ export function CombatView() {
   const [myAgents, setMyAgents] = useState<Agent[]>([]);
   const [agentId, setAgentId] = useState<number | null>(null);
   const [stake, setStake] = useState('');           // BOT; '' = free play
+  const [showKeypad, setShowKeypad] = useState(false);
   const [escrowBotId, setEscrowBotId] = useState<number>(0);
   const [staking, setStaking] = useState(false);
-  const { containerStyle, activate } = useLandscapeGameMode();
+  const [stuckGames, setStuckGames] = useState<{ game_id: number; stake_wei: string }[]>([]);
+  const [reclaiming, setReclaiming] = useState<number | null>(null);
+  const { rotated, containerStyle, activate } = useLandscapeGameMode();
   const wsRef = useRef<WebSocket | null>(null);
   const holdStart = useRef<number>(0);
   const floatId = useRef(0);
@@ -71,9 +116,30 @@ export function CombatView() {
       .then((a) => { if (!live) return; setMyAgents(a); if (a.length && agentId === null) setAgentId(a[0].token_id); })
       .catch(() => {});
     api.bots().then((b) => { if (live && b.length) setEscrowBotId(b[0].token_id); }).catch(() => {});
+    api.reclaimableSolo(address).then((rows) => { if (live) setStuckGames(rows); }).catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, address]);
+
+  const reclaim = useCallback(async (gameId: number) => {
+    if (!address) return;
+    setReclaiming(gameId);
+    try {
+      await writeContract({
+        address: ADDRESSES.soloArena,
+        abi: SOLO_ARENA_ABI as any,
+        functionName: 'reclaim',
+        args: [BigInt(gameId)],
+        account: address as `0x${string}`,
+      });
+      toast.success('Stake reclaimed — back in your wallet');
+      setStuckGames((g) => g.filter((x) => x.game_id !== gameId));
+    } catch (e: any) {
+      toast.error(e?.shortMessage ?? e?.message ?? 'Reclaim failed');
+    } finally {
+      setReclaiming(null);
+    }
+  }, [address]);
 
   const chosen = myAgents.find((a) => a.token_id === agentId);
   const mySkin = chosen?.skin ? AVATARS[chosen.skin]?.src : undefined;
@@ -176,10 +242,8 @@ export function CombatView() {
       toast.success(`${stake} BOT staked — win this fight to take 1.8×`);
       connect(gameId);
     } catch (e: any) {
-  console.error('STAKE ERROR FULL:', e);
-  console.error('STAKE ERROR JSON:', JSON.stringify(e, null, 2));
-  toast.error(e?.shortMessage ?? e?.message ?? String(e) ?? 'Staking failed');
-} finally { setStaking(false); }
+      toast.error(e?.shortMessage ?? e?.message ?? 'Staking failed');
+    } finally { setStaking(false); }
   }, [address, agentId, stake, escrowBotId, connect]);
 
   const startFight = () => {
@@ -308,7 +372,7 @@ export function CombatView() {
 
       {/* setup: pick your fighter, then FIGHT */}
       {phase === 'setup' && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 overflow-y-auto p-6 text-center">
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 overflow-y-auto bg-background/92 p-6 text-center backdrop-blur-sm">
           <h1 className="font-display text-4xl font-black tracking-widest">
             <span className="text-primary text-glow">äGENT</span>{' '}
             <span className="text-accent text-glow-accent">çOMBAT</span>
@@ -345,6 +409,24 @@ export function CombatView() {
             </p>
           )}
 
+          {stuckGames.length > 0 && (
+            <div className="w-full max-w-md space-y-2 rounded-xl border border-warning/50 bg-warning/10 p-3 text-left">
+              <p className="text-xs font-semibold text-warning">
+                {stuckGames.length} stake{stuckGames.length > 1 ? 's' : ''} never got a result — reclaim to get your BOT back
+              </p>
+              {stuckGames.map((g) => (
+                <div key={g.game_id} className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    Game #{g.game_id} · {Number(formatEther(BigInt(g.stake_wei))).toFixed(2)} BOT
+                  </span>
+                  <Button size="sm" variant="outline" disabled={reclaiming === g.game_id} onClick={() => reclaim(g.game_id)}>
+                    {reclaiming === g.game_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Reclaim'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center gap-3 text-sm">
             <span className="text-muted-foreground">Opponent</span>
             {[0, 1, 2].map((p) => (
@@ -365,6 +447,9 @@ export function CombatView() {
               <span className="text-muted-foreground">Stake</span>
               <input
                 value={stake}
+                readOnly={rotated}
+                onFocus={(e) => { if (rotated) { e.target.blur(); setShowKeypad(true); } }}
+                onClick={() => { if (rotated) setShowKeypad(true); }}
                 onChange={(e) => setStake(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="0 = free"
                 inputMode="decimal"
@@ -469,6 +554,10 @@ export function CombatView() {
             </button>
           ))}
         </>
+      )}
+
+      {showKeypad && (
+        <StakeKeypad value={stake} onChange={setStake} onClose={() => setShowKeypad(false)} />
       )}
 
       {/* settings gear: above every overlay so it always opens */}
