@@ -19,6 +19,7 @@ import logging
 from datetime import datetime, timezone
 
 from eth_account import Account
+from sqlalchemy import select
 from web3 import Web3
 
 from ..config import get_settings
@@ -211,7 +212,20 @@ SOLO_PENDING_TTL_S = 15 * 60  # abandoned staked games settle after this
 
 async def sweep_stale_solo(w3, nft, solo) -> None:
     """Auto-resolve pending solo games older than the TTL via simulation
-    (the pre-live-combat behavior) so escrowed stakes always pay out."""
+    (the pre-live-combat behavior) so escrowed stakes always pay out.
+
+    NOTE: retired as of the live-combat redesign. bot_id is now a pure
+    escrow reference (the frontend passes whatever house-bot id happens
+    to be registered, often 0) — it is NOT a real minted agent, so
+    nft.getAgent(bot_id) reverts every single time this runs, which is
+    exactly the crash loop this was producing. The SoloArena contract's
+    reclaim() now lets the PLAYER pull their own stake back after
+    RECLAIM_AFTER (1h) with no backend involvement, which is the correct
+    fix for a fight that never got a live result — not a fabricated
+    replay against a bot that may not even exist. This function is kept
+    as a passive monitor (logs stale games so you can see if the live
+    settlement path is failing) and does NOT touch the chain.
+    """
     from sqlalchemy import select
 
     cutoff = datetime.now(timezone.utc).timestamp() - SOLO_PENDING_TTL_S
@@ -222,80 +236,22 @@ async def sweep_stale_solo(w3, nft, solo) -> None:
             )
         ).scalars().all()
         stale = [
-            (g.game_id, g.agent_id, g.bot_id)
+            g.game_id
             for g in rows
             if g.created_at is not None and g.created_at.timestamp() < cutoff
         ]
 
-    for game_id, agent_id, bot_id in stale:
-        try:
-            async with SessionLocal() as db:
-                mem = await head_to_head(db, agent_id, bot_id)
-            fighter = _fighter_from_chain(nft, agent_id)
-            bot = _fighter_from_chain(nft, bot_id)
-            fighter.memory_vs_opponent = mem
-            bot.memory_vs_opponent = (mem[1], mem[0])
-            battle_log = simulate(fighter, bot, game_id)
-            m_hash = moves_hash(battle_log)
-            player_won = battle_log["winner"] == agent_id
-            tx_hash = _send_tx(
-                w3, solo.functions.submitResult(game_id, player_won, m_hash)
-            )
-            async with SessionLocal() as db:
-                g = await db.get(SoloGame, game_id)
-                g.status = "resolved"
-                g.player_won = player_won
-                g.moves = battle_log
-                g.moves_hash = m_hash.hex()
-                g.tx_hash = tx_hash
-                await db.commit()
-            log.info("Stale solo %s swept: player %s (tx %s)",
-                     game_id, "won" if player_won else "lost", tx_hash)
-        except Exception:
-            log.exception("Sweeping solo game %s failed", game_id)
-
-
-async def _unused_resolve_solo(w3, nft, solo, event) -> None:
-    """(retired) kept for reference: the old auto-simulated solo flow."""
-    game_id = event["args"]["gameId"]
-    agent_id = event["args"]["agentId"]
-    bot_id = event["args"]["botId"]
-    seed = event["args"]["seed"]
-
-    async with SessionLocal() as db:
-        existing = await db.get(SoloGame, game_id)
-        if existing and existing.status == "resolved":
-            return
-        mem = await head_to_head(db, agent_id, bot_id)
-
-    fighter = _fighter_from_chain(nft, agent_id)
-    bot = _fighter_from_chain(nft, bot_id)
-    fighter.memory_vs_opponent = mem
-    bot.memory_vs_opponent = (mem[1], mem[0])
-
-    battle_log = simulate(fighter, bot, seed)
-    m_hash = moves_hash(battle_log)
-    player_won = battle_log["winner"] == agent_id
-
-    tx_hash = _send_tx(
-        w3, solo.functions.submitResult(game_id, player_won, m_hash)
-    )
-
-    async with SessionLocal() as db:
-        g = await db.get(SoloGame, game_id) or SoloGame(
-            game_id=game_id, agent_id=agent_id, bot_id=bot_id
+    if stale:
+        log.warning(
+            "%d solo game(s) stuck pending >%.0fmin (never settled by live "
+            "combat): %s. These are NOT auto-resolved anymore — the player "
+            "can call SoloArena.reclaim(gameId) to get their stake back. "
+            "If this list keeps growing, check why live settlement is "
+            "failing (see combat.tsx result 'stake.settled' / the "
+            "'STAKE SETTLEMENT FAILED' log line).",
+            len(stale), SOLO_PENDING_TTL_S / 60, stale,
         )
-        g.player = event["args"]["player"]
-        g.stake_wei = str(event["args"]["stake"])
-        g.status = "resolved"
-        g.player_won = player_won
-        g.moves = battle_log
-        g.moves_hash = m_hash.hex()
-        g.tx_hash = tx_hash
-        db.add(g)
-        await db.commit()
-    log.info("Solo game %s: player %s (tx %s)",
-             game_id, "won" if player_won else "lost", tx_hash)
+    return
 
 
 async def open_league(league_contract, league_id: int, seed: int) -> None:
