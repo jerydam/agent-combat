@@ -109,7 +109,7 @@ export function LandingView({ onEnter }: LandingViewProps) {
           return (
             <div
               key={f.title}
-              className="group rounded-2xl border border-border/60 bg-card/40 p-6 transition-all hover:border-primary/40 hover:bg-card/70 hover:shadow-[0_0_24px_rgba(20,184,166,0.1)]"
+              className="group rounded-2xl border border-border/60 bg-card/40 p-6 transition-all hover:border-primary/40 hover:bg-card/70 hover:shadow-[0_0_24px_hsl(204_95%_53%/0.15)]"
             >
               <div className={`mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-secondary ${f.color}`}>
                 <Icon className="h-5 w-5" />

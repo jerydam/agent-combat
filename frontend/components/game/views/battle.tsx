@@ -30,7 +30,10 @@ export function BattleView() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold tracking-wide">BATTLE #{id}</h1>
+        <div>
+          <h1 className="font-display text-3xl font-bold tracking-wide">BATTLE #{id}</h1>
+          <div className="split-line mt-2 w-32" />
+        </div>
         {battle?.tx_hash && (
           <a
             href={`https://scan.botchain.ai/tx/${battle.tx_hash.startsWith('0x') ? battle.tx_hash : `0x${battle.tx_hash}`}`}

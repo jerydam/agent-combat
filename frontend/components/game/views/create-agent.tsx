@@ -59,7 +59,8 @@ export function CreateAgentView() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide">MINT AGENT</h1>
+        <h1 className="font-display text-3xl font-bold tracking-wide text-steel">MINT AGENT</h1>
+          <div className="split-line mt-2 w-32" />
         <p className="mt-1 text-sm text-muted-foreground">
           Stats roll on-chain at mint (40–90 per stat) — the personality you pick shapes how your agent fights forever.
         </p>
@@ -94,7 +95,7 @@ export function CreateAgentView() {
                   className={cn(
                     'rounded-xl border bg-background/40 p-4 text-left transition-all',
                     personality === p
-                      ? 'border-primary ring-2 ring-primary/40 shadow-[0_0_20px_rgba(20,184,166,0.2)]'
+                      ? 'border-primary ring-2 ring-primary/40 shadow-[0_0_20px_hsl(204_95%_53%/0.3)]'
                       : 'border-border hover:border-primary/40',
                   )}
                 >

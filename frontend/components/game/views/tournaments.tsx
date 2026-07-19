@@ -57,7 +57,8 @@ export function TournamentsView() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide">TOURNAMENTS</h1>
+        <h1 className="font-display text-3xl font-bold tracking-wide text-steel">TOURNAMENTS</h1>
+          <div className="split-line mt-2 w-32" />
         <p className="mt-1 text-sm text-muted-foreground">
           Single-elimination brackets, prize pool on-chain, podium 50/30/20. The whole bracket derives from an on-chain seed — fully replayable.
         </p>

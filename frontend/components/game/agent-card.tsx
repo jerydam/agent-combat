@@ -30,8 +30,8 @@ export function AgentCard({ agent, onClick, selected, compact, footer }: AgentCa
       onClick={onClick}
       className={cn(
         'group relative overflow-hidden rounded-xl border bg-card/60 p-4 transition-all duration-300',
-        onClick && 'cursor-pointer hover:border-primary/50 hover:bg-card/80 hover:shadow-[0_0_24px_rgba(20,184,166,0.15)]',
-        selected && 'border-primary ring-2 ring-primary/40 shadow-[0_0_28px_rgba(20,184,166,0.3)]',
+        onClick && 'cursor-pointer hover:border-primary/50 hover:bg-card/80 hover:shadow-[0_0_24px_hsl(204_95%_53%/0.2)]',
+        selected && 'border-primary ring-2 ring-primary/40 shadow-[0_0_28px_hsl(204_95%_53%/0.4)]',
       )}
     >
       <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/5 blur-2xl transition-opacity group-hover:opacity-100 opacity-0" />

@@ -31,6 +31,7 @@ export function AgentDetailView({ tokenId }: { tokenId: number }) {
           <AgentAvatar personality={agent.personality} tier={agent.tier ?? 1} name={agent.name} size="xl" />
           <div className="min-w-0 flex-1 space-y-2">
             <h1 className="font-display text-3xl font-bold">{agent.name} <span className="text-lg font-normal text-muted-foreground">#{agent.token_id}</span></h1>
+            <div className="split-line mt-2 w-32" />
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">{PERSONALITY_NAMES[agent.personality]}</Badge>
               <Badge variant="outline">{TIER_NAMES[agent.tier ?? 1]}</Badge>

@@ -63,6 +63,7 @@ export function LeagueRoomView({ leagueId }: { leagueId: number }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-wide">LEAGUE #{league.league_id}</h1>
+          <div className="split-line mt-2 w-32" />
           <p className="mt-1 text-sm text-muted-foreground">
             {league.entrants.length} players · {league.status === 'active'
               ? <>ends in <span className="text-primary font-semibold">{countdown(league.end_time)}</span></>

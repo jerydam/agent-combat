@@ -108,7 +108,8 @@ export function LeaguesView() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide">LEAGUES</h1>
+        <h1 className="font-display text-3xl font-bold tracking-wide text-steel">LEAGUES</h1>
+          <div className="split-line mt-2 w-32" />
         <p className="mt-1 text-sm text-muted-foreground">
           Room-based, scheduled, async. Play your fixtures whenever you&apos;re online — your opponents&apos; agents fight autonomously. Unplayed fixtures forfeit at the deadline.
         </p>

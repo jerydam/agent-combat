@@ -57,7 +57,8 @@ export function TrainingView() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide">TRAINING</h1>
+        <h1 className="font-display text-3xl font-bold tracking-wide text-steel">TRAINING</h1>
+          <div className="split-line mt-2 w-32" />
         <p className="mt-1 text-sm text-muted-foreground">
           Free sparring — test matchups with fresh random seeds. No gas, no XP, no records.
         </p>
