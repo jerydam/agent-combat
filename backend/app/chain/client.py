@@ -1,7 +1,7 @@
 """Web3 client for BOT Chain + minimal contract ABIs."""
 
 from web3 import Web3
-
+from web3.middleware import ExtraDataToPOAMiddleware
 from ..config import get_settings
 
 AGENT_NFT_ABI = [
@@ -239,7 +239,15 @@ SHOP_ABI = [
 
 
 def get_w3() -> Web3:
-    return Web3(Web3.HTTPProvider(get_settings().rpc_url))
+    w3 = Web3(Web3.HTTPProvider(get_settings().rpc_url))
+    # BOT Chain's block headers carry >32-byte extraData (multi-validator
+    # PoA seal). Without this, ANY call that reads a block — including
+    # build_transaction()'s automatic EIP-1559 fee lookup, which every
+    # _send_tx() triggers — raises ExtraDataLengthError and the tx is
+    # silently never sent. This is why submitResult kept "failing" with
+    # no useful error: it never even got to broadcasting.
+    w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
+    return w3
 
 
 def get_contracts(w3: Web3):
