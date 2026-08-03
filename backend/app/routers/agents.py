@@ -28,18 +28,20 @@ def _to_fighter(a: AgentCache) -> FighterState:
 
 
 async def _with_skins(db: AsyncSession, agents: list[AgentCache]) -> list[dict]:
+    """Attach the equipped loadout (avatar + perk) to each agent."""
     ids = [a.token_id for a in agents]
-    skins: dict[int, str] = {}
+    loadouts: dict[int, AgentLoadout] = {}
     if ids:
         rows = (
             await db.execute(
                 select(AgentLoadout).where(AgentLoadout.token_id.in_(ids))
             )
         ).scalars().all()
-        skins = {r.token_id: r.skin for r in rows}
+        loadouts = {r.token_id: r for r in rows}
     return [
         {**{c.name: getattr(a, c.name) for c in AgentCache.__table__.columns},
-         "skin": skins.get(a.token_id, "")}
+         "skin": getattr(loadouts.get(a.token_id), "skin", "") or "",
+         "power": getattr(loadouts.get(a.token_id), "power", "") or ""}
         for a in agents
     ]
 

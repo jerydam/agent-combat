@@ -17,7 +17,8 @@ import { useWallet } from '@/lib/wallet';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Settings, X, Swords, Shield, Star, ChevronUp, Coins, Loader2, Flame } from 'lucide-react';
+import Link from 'next/link';
+import { Settings, X, Swords, Shield, Star, ChevronUp, Coins, Loader2, Flame, ArrowRight } from 'lucide-react';
 import { useLandscapeGameMode } from '@/lib/game-mode';
 import { PixelFx, type PixelFxHandle } from '@/components/game/pixel-fx';
 
@@ -130,7 +131,6 @@ export function CombatView() {
   const [escrowBotId, setEscrowBotId] = useState<number>(0);
   const [staking, setStaking] = useState(false);
   const [stuckGames, setStuckGames] = useState<{ game_id: number; stake_wei: string }[]>([]);
-  const [reclaiming, setReclaiming] = useState<number | null>(null);
   const [payout, setPayout] = useState<{ ok: boolean; problems: string[]; max_stake_wei: string } | null>(null);
   const [settleState, setSettleState] = useState<'idle' | 'retrying' | 'paid'>('idle');
   const { rotated, containerStyle, activate } = useLandscapeGameMode();
@@ -223,26 +223,6 @@ export function CombatView() {
     }, 5000);
     return () => { live = false; clearInterval(id); };
   }, [phase, result?.stake, address]);
-
-  const reclaim = useCallback(async (gameId: number) => {
-    if (!address) return;
-    setReclaiming(gameId);
-    try {
-      await writeContract({
-        address: ADDRESSES.soloArena,
-        abi: SOLO_ARENA_ABI as any,
-        functionName: 'reclaim',
-        args: [BigInt(gameId)],
-        account: address as `0x${string}`,
-      });
-      toast.success('Stake reclaimed — back in your wallet');
-      setStuckGames((g) => g.filter((x) => x.game_id !== gameId));
-    } catch (e: any) {
-      toast.error(e?.shortMessage ?? e?.message ?? 'Reclaim failed');
-    } finally {
-      setReclaiming(null);
-    }
-  }, [address]);
 
   const chosen = myAgents.find((a) => a.token_id === agentId);
   const mySkin = chosen?.skin ? AVATARS[chosen.skin]?.src : undefined;
@@ -717,22 +697,19 @@ export function CombatView() {
             </p>
           )}
 
+          {/* Money management lives on /rewards — the arena stays a
+              fight screen. Just a one-line pointer when something is
+              actually waiting for them. */}
           {stuckGames.length > 0 && (
-            <div className="w-full max-w-md space-y-2 rounded-xl border border-warning/50 bg-warning/10 p-3 text-left">
-              <p className="text-xs font-semibold text-warning">
-                {stuckGames.length} stake{stuckGames.length > 1 ? 's' : ''} never got a result — reclaim to get your BOT back
-              </p>
-              {stuckGames.map((g) => (
-                <div key={g.game_id} className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    Game #{g.game_id} · {Number(formatEther(BigInt(g.stake_wei))).toFixed(2)} BOT
-                  </span>
-                  <Button size="sm" variant="outline" disabled={reclaiming === g.game_id} onClick={() => reclaim(g.game_id)}>
-                    {reclaiming === g.game_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Reclaim'}
-                  </Button>
-                </div>
-              ))}
-            </div>
+            <Link href="/rewards"
+              className="flex w-full max-w-md items-center justify-between gap-3 rounded-xl border border-warning/50 bg-warning/10 px-4 py-2.5 text-left">
+              <span className="text-xs font-semibold text-warning">
+                {stuckGames.length} stake{stuckGames.length > 1 ? 's' : ''} waiting to be recovered
+              </span>
+              <span className="flex items-center gap-1 font-display text-xs text-warning">
+                REWARDS <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            </Link>
           )}
 
           <div className="flex items-center gap-3 text-sm">

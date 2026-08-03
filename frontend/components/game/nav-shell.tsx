@@ -10,7 +10,7 @@ import { releaseGameMode } from '@/lib/game-mode';
 import { MobileNavCarousel } from '@/components/game/mobile-nav-carousel';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
-import { Zap, Swords, Trophy, Home, Plus, Dumbbell, LogOut, Wallet, Users, Medal, Flame, Award, ShoppingBag, Menu } from 'lucide-react';
+import { Zap, Swords, Trophy, Home, Plus, Dumbbell, LogOut, Wallet, Users, Medal, Flame, Award, ShoppingBag, Menu, Coins } from 'lucide-react';
 import { Toaster } from 'sonner';
 
 const NAV_ITEMS: { href: string; label: string; icon: React.ElementType }[] = [
@@ -24,6 +24,7 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ElementType }[] = [
   { href: '/tournaments', label: 'Tournaments', icon: Medal },
   { href: '/achievements', label: 'Achievements', icon: Award },
   { href: '/market', label: 'Market', icon: ShoppingBag },
+  { href: '/rewards', label: 'Rewards', icon: Coins },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
 ];
 

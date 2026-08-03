@@ -81,6 +81,10 @@ export const api = {
     ]);
     return [...pending, ...unsettled].filter((r: any) => r.reclaimable);
   },
+  /** Every solo stake this wallet has placed, newest first — the data
+   *  behind the /rewards page. */
+  soloGamesFor: (player: string) =>
+    get<SoloGame[]>(`/solo/games?player=${player.toLowerCase()}&limit=100`),
   /** Wins this wallet has earned but not been paid yet (settlement tx
    *  still being retried by the backend). */
   awaitingPayout: (player: string) =>

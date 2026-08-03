@@ -37,10 +37,14 @@ function isActivePath(pathname: string, href: string): boolean {
 }
 
 /**
- * Full-screen popup menu for mobile: cards scroll horizontally with
- * snap, the centered card scales up, and moving between cards plays a
- * short blip — the console-menu feel the game calls for. Tap a card (or
- * tap the already-centered one again) to navigate and close.
+ * Full-screen popup menu for mobile: entries stack VERTICALLY with snap,
+ * the centred row highlights, and moving between rows plays a short blip
+ * — the console-menu feel the game calls for. Tap a row (or tap the
+ * already-centred one again) to navigate and close.
+ *
+ * Vertical because the app is portrait everywhere except the fight: a
+ * phone has far more height than width, so a stack shows several full
+ * labels at once where a horizontal rail showed one and a half.
  */
 export function MobileNavCarousel({ items, onClose }: { items: NavCard[]; onClose: () => void }) {
   const router = useRouter();
@@ -49,15 +53,18 @@ export function MobileNavCarousel({ items, onClose }: { items: NavCard[]; onClos
   const [active, setActive] = useState(0);
   const lastPlayed = useRef(-1);
 
-  const CARD_W = 132;
-  const GAP = 14;
-  const STEP = CARD_W + GAP;
+  // Vertical list: a phone is tall, so stacking gives every entry a full
+  // readable row instead of a 132px sliver, and the scroll gesture runs
+  // the way the page already scrolls.
+  const CARD_H = 68;
+  const GAP = 10;
+  const STEP = CARD_H + GAP;
 
   const centerOn = useCallback((idx: number, smooth = true) => {
     const track = trackRef.current;
     if (!track) return;
-    const target = idx * STEP - track.clientWidth / 2 + CARD_W / 2;
-    track.scrollTo({ left: target, behavior: smooth ? 'smooth' : 'auto' });
+    const target = idx * STEP - track.clientHeight / 2 + CARD_H / 2;
+    track.scrollTo({ top: target, behavior: smooth ? 'smooth' : 'auto' });
   }, [STEP]);
 
   // start centered on the current page
@@ -73,8 +80,8 @@ export function MobileNavCarousel({ items, onClose }: { items: NavCard[]; onClos
   const onScroll = useCallback(() => {
     const track = trackRef.current;
     if (!track) return;
-    const mid = track.scrollLeft + track.clientWidth / 2;
-    const idx = Math.max(0, Math.min(items.length - 1, Math.round((mid - CARD_W / 2) / STEP)));
+    const mid = track.scrollTop + track.clientHeight / 2;
+    const idx = Math.max(0, Math.min(items.length - 1, Math.round((mid - CARD_H / 2) / STEP)));
     if (idx !== active) setActive(idx);
     if (idx !== lastPlayed.current) {
       beep(340 + idx * 6, 45);
@@ -100,12 +107,19 @@ export function MobileNavCarousel({ items, onClose }: { items: NavCard[]; onClos
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-4">
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-3">
         <div
           ref={trackRef}
           onScroll={onScroll}
-          className="scrollbar-thin flex w-full snap-x snap-mandatory items-center gap-3.5 overflow-x-auto px-[calc(50%-66px)] py-6"
-          style={{ scrollSnapType: 'x mandatory' }}
+          className="scrollbar-thin flex w-full max-w-sm flex-col items-stretch gap-2.5 overflow-y-auto px-5"
+          style={{
+            scrollSnapType: 'y mandatory',
+            // half-viewport padding top and bottom so the FIRST and LAST
+            // entries can still reach the centre line
+            paddingTop: 'calc(50% - 34px)',
+            paddingBottom: 'calc(50% - 34px)',
+            WebkitOverflowScrolling: 'touch',
+          }}
         >
           {items.map((item, idx) => {
             const Icon = item.icon;
@@ -115,15 +129,18 @@ export function MobileNavCarousel({ items, onClose }: { items: NavCard[]; onClos
                 key={item.href}
                 onClick={() => select(idx)}
                 className={cn(
-                  'flex shrink-0 snap-center flex-col items-center justify-center gap-2 rounded-2xl border transition-all duration-200',
+                  'flex w-full shrink-0 snap-center items-center gap-3.5 rounded-2xl border px-4 transition-all duration-200',
                   isCenter
-                    ? 'h-36 w-32 scale-100 border-primary bg-primary/15 text-primary shadow-[0_0_30px_hsl(204_95%_53%/0.35)]'
-                    : 'h-28 w-32 scale-90 border-border bg-card/40 text-muted-foreground opacity-60',
+                    ? 'border-primary bg-primary/15 text-primary shadow-[0_0_30px_hsl(204_95%_53%/0.35)]'
+                    : 'border-border bg-card/40 text-muted-foreground opacity-60',
                 )}
-                style={{ width: CARD_W }}
+                style={{ height: CARD_H }}
               >
-                <Icon className={cn(isCenter ? 'h-8 w-8' : 'h-6 w-6')} />
-                <span className={cn('font-display font-bold tracking-wide', isCenter ? 'text-sm' : 'text-xs')}>
+                <Icon className={cn('shrink-0', isCenter ? 'h-7 w-7' : 'h-5 w-5')} />
+                <span className={cn(
+                  'font-display font-bold tracking-wide',
+                  isCenter ? 'text-base' : 'text-sm',
+                )}>
                   {item.label}
                 </span>
               </button>
@@ -131,7 +148,7 @@ export function MobileNavCarousel({ items, onClose }: { items: NavCard[]; onClos
           })}
         </div>
 
-        <p className="font-display text-[10px] tracking-[0.3em] text-muted-foreground">
+        <p className="pb-4 font-display text-[10px] tracking-[0.3em] text-muted-foreground">
           SCROLL · TAP TO ENTER
         </p>
       </div>

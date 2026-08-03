@@ -32,6 +32,9 @@ class AgentOut(BaseModel):
     losses: int
     ranking_points: int
     skin: str = ""
+    # equipped perk id — needed so the market can show what's already on
+    # an agent instead of making the player guess whether equip worked
+    power: str = ""
 
 
 class BattleOut(BaseModel):

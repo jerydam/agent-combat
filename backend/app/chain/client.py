@@ -217,6 +217,31 @@ SOLO_ABI = [
             {"name": "seed", "type": "uint256", "indexed": False},
         ],
     },
+    # Emitted when a player pulls their own stake back after the 1h
+    # window. Without indexing this the DB row stays "pending" forever,
+    # so the app keeps offering Reclaim on a game that was ALREADY
+    # reclaimed — and the retry tx reverts GameNotPending.
+    {
+        "name": "SoloReclaimed",
+        "type": "event",
+        "anonymous": False,
+        "inputs": [
+            {"name": "gameId", "type": "uint256", "indexed": True},
+            {"name": "player", "type": "address", "indexed": True},
+            {"name": "stake", "type": "uint256", "indexed": False},
+        ],
+    },
+    {
+        "name": "SoloResolved",
+        "type": "event",
+        "anonymous": False,
+        "inputs": [
+            {"name": "gameId", "type": "uint256", "indexed": True},
+            {"name": "playerWon", "type": "bool", "indexed": False},
+            {"name": "payout", "type": "uint256", "indexed": False},
+            {"name": "movesHash", "type": "bytes32", "indexed": False},
+        ],
+    },
     {
         "name": "submitResult",
         "type": "function",

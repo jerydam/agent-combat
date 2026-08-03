@@ -337,6 +337,65 @@ async def retry_unsettled_solo(w3, solo) -> None:
         log.info("solo %s settled on retry (won=%s, tx %s)", game_id, won, tx_hash)
 
 
+async def index_solo_reclaimed(event) -> None:
+    """SoloReclaimed: the player took their own stake back."""
+    game_id = event["args"]["gameId"]
+    async with SessionLocal() as db:
+        g = await db.get(SoloGame, game_id)
+        if g is None or g.status == "reclaimed":
+            return
+        g.status = "reclaimed"
+        await db.commit()
+    log.info("Solo game %s reclaimed by player", game_id)
+
+
+async def reconcile_open_solo(w3, solo) -> None:
+    """Sync any still-open game row against the chain's own status.
+
+    Event indexing alone is not enough: the listener only scans from the
+    block it started at, so every reclaim that happened while it was down
+    (or before this handler existed) is invisible to it. Those rows stay
+    "pending" forever and the app keeps offering Reclaim on a stake the
+    player already took back — the reclaim tx then reverts
+    GameNotPending, which reads as the app being broken.
+
+    Cheap to run: only touches rows the DB still believes are open.
+    """
+    from sqlalchemy import select
+
+    if solo is None:
+        return
+
+    async with SessionLocal() as db:
+        rows = (
+            await db.execute(
+                select(SoloGame).where(SoloGame.status.in_(("pending", "unsettled")))
+            )
+        ).scalars().all()
+        open_ids = [g.game_id for g in rows]
+
+    for game_id in open_ids:
+        try:
+            status = solo.functions.getGame(game_id).call()[4]
+        except Exception:
+            continue  # RPC blip — try again next tick
+        if status == _ST_PENDING:
+            continue  # genuinely still open
+
+        new = {
+            _ST_RESOLVED: "resolved",
+            _ST_RECLAIMED: "reclaimed",
+        }.get(status)
+        if new is None:
+            continue
+        async with SessionLocal() as db:
+            g = await db.get(SoloGame, game_id)
+            if g is not None and g.status != new:
+                g.status = new
+                await db.commit()
+                log.info("solo %s reconciled to '%s' from chain state", game_id, new)
+
+
 async def sweep_stale_solo(w3, nft, solo) -> None:
     """Passive monitor for games that never got a live result at all.
 
@@ -640,6 +699,13 @@ async def run_listener() -> None:
                         from_block=frm, to_block=to
                     ):
                         await index_solo(ev)
+                    for ev in solo.events.SoloReclaimed().get_logs(
+                        from_block=frm, to_block=to
+                    ):
+                        await index_solo_reclaimed(ev)
+                    # catches reclaims/resolutions from blocks we never
+                    # scanned (listener downtime, pre-existing rows)
+                    await reconcile_open_solo(w3, solo)
                     # wins whose settlement tx failed get another go every
                     # tick — this is what actually pays the player
                     await retry_unsettled_solo(w3, solo)
