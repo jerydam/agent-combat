@@ -10,8 +10,9 @@ import { releaseGameMode } from '@/lib/game-mode';
 import { MobileNavCarousel } from '@/components/game/mobile-nav-carousel';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
-import { Zap, Swords, Trophy, Home, Plus, Dumbbell, LogOut, Wallet, Users, Medal, Flame, Award, ShoppingBag, Menu, Coins, BookOpen } from 'lucide-react';
+import { Zap, Swords, Trophy, Home, Plus, Dumbbell, LogOut, Wallet, Users, Medal, Flame, Award, ShoppingBag, Menu, Coins, BookOpen, KeyRound } from 'lucide-react';
 import { Toaster } from 'sonner';
+import { SignInSheet, PinGate } from '@/components/game/wallet-gate';
 
 const NAV_ITEMS: { href: string; label: string; icon: React.ElementType }[] = [
   { href: '/', label: 'Home', icon: Home },
@@ -27,6 +28,7 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ElementType }[] = [
   { href: '/achievements', label: 'Achievements', icon: Award },
   { href: '/market', label: 'Market', icon: ShoppingBag },
   { href: '/rewards', label: 'Rewards', icon: Coins },
+  { href: '/wallet', label: 'Wallet', icon: Wallet },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { href: '/guide', label: 'How to Play', icon: BookOpen },
 ];
@@ -50,12 +52,14 @@ function useIsMobile() {
 }
 
 export function NavShell({ children }: { children: React.ReactNode }) {
-  const { connected, address, connect, connecting, disconnect } = useWallet();
+  const { connected, address, connect, connecting, disconnect, mode, unlocked, hasPin } = useWallet();
   const pathname = usePathname();
   const [points, setPoints] = useState<number | null>(null);
   const isMobile = useIsMobile();
   const [showMenu, setShowMenu] = useState(false);
   const [everConnected, setEverConnected] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
   useEffect(() => {
     if (!connected || !address) { setPoints(null); return; }
@@ -75,7 +79,17 @@ export function NavShell({ children }: { children: React.ReactNode }) {
     if (!connected) setEverConnected(false);
   }, [isMobile, connected, everConnected]);
 
-  const handleConnect = () => connect();
+  // Google-first: the sheet offers the embedded wallet, with an
+  // external wallet as the secondary option.
+  const handleConnect = () => setShowSignIn(true);
+
+  // Any transaction attempted on a locked embedded wallet asks for the PIN
+  // here, so every call site gets the prompt without knowing about it.
+  useEffect(() => {
+    const onLocked = () => setShowPin(true);
+    window.addEventListener('agent-arena:wallet-locked', onLocked);
+    return () => window.removeEventListener('agent-arena:wallet-locked', onLocked);
+  }, []);
   const openMenu = () => setShowMenu(true);
 
   // Game screens are fully immersive: they manage their own chrome and
@@ -123,9 +137,18 @@ export function NavShell({ children }: { children: React.ReactNode }) {
             )}
             {connected ? (
               <>
-                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary">
+                {/* embedded wallets need the key unlocked before they can
+                    transact — surface it rather than failing at tx time */}
+                {mode === 'embedded' && !unlocked && (
+                  <button onClick={() => setShowPin(true)}
+                    className="flex items-center gap-1 rounded-lg border border-warning/60 bg-warning/10 px-2 py-1 text-[10px] font-bold text-warning">
+                    <KeyRound className="h-3 w-3" /> {hasPin ? 'UNLOCK' : 'SET PIN'}
+                  </button>
+                )}
+                <Link href="/wallet"
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary">
                   <Wallet className="h-3.5 w-3.5" />
-                </div>
+                </Link>
                 <button onClick={disconnect} className="text-muted-foreground"><LogOut className="h-4 w-4" /></button>
               </>
             ) : (
@@ -170,6 +193,9 @@ export function NavShell({ children }: { children: React.ReactNode }) {
         {showMenu && (
           <MobileNavCarousel items={NAV_ITEMS} onClose={() => setShowMenu(false)} />
         )}
+
+        <SignInSheet open={showSignIn} onClose={() => setShowSignIn(false)} />
+        <PinGate open={showPin} onClose={() => setShowPin(false)} />
 
         <Toaster theme="dark" position="top-center" />
       </div>
@@ -232,9 +258,16 @@ export function NavShell({ children }: { children: React.ReactNode }) {
                   <div className="text-xs font-semibold text-foreground">Connected</div>
                   <div className="text-[10px] text-muted-foreground">{shortAddr(address)}</div>
                 </div>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary">
+                {mode === 'embedded' && !unlocked && (
+                  <button onClick={() => setShowPin(true)}
+                    className="flex items-center gap-1 rounded-lg border border-warning/60 bg-warning/10 px-2 py-1 text-[10px] font-bold text-warning">
+                    <KeyRound className="h-3 w-3" /> {hasPin ? 'UNLOCK' : 'SET PIN'}
+                  </button>
+                )}
+                <Link href="/wallet"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary">
                   <Wallet className="h-4 w-4" />
-                </div>
+                </Link>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -246,7 +279,7 @@ export function NavShell({ children }: { children: React.ReactNode }) {
                 </Button>
               </div>
             ) : (
-              <Button size="sm" onClick={() => connect()} disabled={connecting} className="gap-1.5">
+              <Button size="sm" onClick={handleConnect} disabled={connecting} className="gap-1.5">
                 <Wallet className="h-4 w-4" />
                 {connecting ? 'Connecting…' : 'Connect'}
               </Button>
@@ -259,6 +292,8 @@ export function NavShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <Toaster theme="dark" position="bottom-right" />
+      <SignInSheet open={showSignIn} onClose={() => setShowSignIn(false)} />
+      <PinGate open={showPin} onClose={() => setShowPin(false)} />
 
       <footer className="relative z-10 border-t border-border/40 py-6 text-center text-xs text-muted-foreground">
         <img src="/logo.png" alt="" className="mx-auto mb-2 h-6 w-6 opacity-60" draggable={false} />

@@ -117,8 +117,18 @@ export function GuideView() {
           <section className="space-y-4">
             <H id="start" icon={Wallet}>Getting started</H>
             <ol className="space-y-2 text-sm text-muted-foreground">
-              <li><b className="text-foreground">1. Connect a wallet.</b> The game runs on Botchain (chain id 968). The app will prompt you to switch networks.</li>
-              <li><b className="text-foreground">2. Get some BOT.</b> You need it for gas, and for staking if you want to play for money. Everything except staking works without it.</li>
+              <li>
+                <b className="text-foreground">1. Sign in with Google.</b> A wallet is created
+                for you automatically — no extension, no seed phrase to write down first. You
+                set a 6-digit PIN, which authorises transactions. Prefer your own wallet?
+                &quot;Use my own wallet&quot; is there too.
+              </li>
+              <li>
+                <b className="text-foreground">2. Fund your wallet.</b> Open{' '}
+                <Link href="/wallet" className="text-primary hover:underline">Wallet</Link>, copy
+                your address, and send BOT to it on Botchain (chain id 968). You need a little
+                for gas before minting, and more if you want to stake on fights.
+              </li>
               <li><b className="text-foreground">3. Mint an agent</b> at <Link href="/create" className="text-primary hover:underline">Mint Agent</Link>. Minting itself is free — you only pay gas.</li>
               <li><b className="text-foreground">4. Learn the controls</b> at <Link href="/training" className="text-primary hover:underline">Training</Link>. It&apos;s a real fight that <b>pauses itself</b> the moment something is about to happen, tells you which button to press, and only continues once you press it.</li>
               <li><b className="text-foreground">5. Fight</b> at <Link href="/combat" className="text-primary hover:underline">Combat</Link>.</li>
@@ -126,6 +136,20 @@ export function GuideView() {
             <Card tone="good" title="You can play for free">
               You do not have to stake anything. Free fights still earn achievement points,
               XP and wins for your agent. Staking is optional and separate.
+            </Card>
+
+            <Card title="Your wallet is yours">
+              <p>
+                The wallet made for you at sign-in is a real wallet, not a game balance. Its
+                recovery phrase is available under{' '}
+                <Link href="/wallet" className="text-primary hover:underline">Wallet</Link> — enter
+                your PIN and you can read the twelve words, import them into MetaMask, and walk
+                away with your agents and BOT whenever you like.
+              </p>
+              <p className="pt-1">
+                Set your <b className="text-foreground">security questions</b> as soon as you sign
+                in. They are the only way to recover a forgotten PIN.
+              </p>
             </Card>
           </section>
 
