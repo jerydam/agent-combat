@@ -668,7 +668,13 @@ async def run_listener() -> None:
         try:
             current = w3.eth.block_number
             if current > last_block:
-                frm, to = last_block + 1, current
+                # Never ask for more than the RPC's eth_getLogs window. A
+                # backlog bigger than that (backend down ~1h at 0.75s/block)
+                # would otherwise make every tick throw before it can bump
+                # last_block, wedging the listener for good. Catch up a
+                # chunk per tick instead.
+                frm = last_block + 1
+                to = min(current, frm + s.log_chunk_blocks - 1)
                 await sync_minted_agents(nft, frm, to)
 
                 # Accepted challenges: fetch pairing from getBattle
@@ -772,7 +778,7 @@ async def run_listener() -> None:
                             ev["args"]["bracketSeed"],
                         )
 
-                last_block = current
+                last_block = to
         except Exception:
             log.exception("Listener tick failed; retrying")
         await asyncio.sleep(s.poll_interval_seconds)

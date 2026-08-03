@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     # Listener
     poll_interval_seconds: float = 2.0
 
+    # Log-scan bounds. rpc.bohr.life rejects any eth_getLogs spanning more
+    # than 5000 blocks ("block range greater than 5000 max"), so every scan
+    # is walked in chunks. deploy_block is where AgentNFT was deployed —
+    # nothing this game cares about exists before it, and starting from 0
+    # would mean thousands of useless round-trips. Override via
+    # DEPLOY_BLOCK / LOG_CHUNK_BLOCKS when redeploying the contracts.
+    deploy_block: int = 18584778
+    log_chunk_blocks: int = 5000
+
     cors_origins: str = "https://www.agentcombat.xyz"
 
     class Config:

@@ -1,5 +1,8 @@
 [profile.default]
-src = "contracts"          # our .sol files live in contracts/, not src/
+src = "src"                # the .sol files really are in src/ — there is no
+                           # contracts/ dir, so the old value pointed at
+                           # nothing and forge only ever compiled the
+                           # contracts that scripts happened to import
 out = "out"
 libs = ["lib", "node_modules"]
 solc_version = "0.8.28"
@@ -9,3 +12,8 @@ optimizer_runs = 200
 [rpc_endpoints]
 botchain = "${BOTCHAIN_RPC}"
 botchain_testnet = "${BOTCHAIN_TESTNET_RPC}"
+# `--rpc-url testnet` is what the deploy docs and muscle memory use. Without
+# an alias of that exact name forge falls back to treating "testnet" as a
+# literal path and fails with a confusing "No such file or directory".
+testnet = "${BOTCHAIN_TESTNET_RPC}"
+mainnet = "${BOTCHAIN_RPC}"

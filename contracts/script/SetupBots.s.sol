@@ -5,11 +5,20 @@ import {Script, console} from "forge-std/Script.sol";
 import {AgentNFT} from "../src/AgentNFT.sol";
 import {SoloArena} from "../src/SoloArena.sol";
 
-/// Mints the house-bot roster, registers them on SoloArena, and funds the
-/// vault so staked solo play can pay out.
+/// Mints the house-bot roster and funds the house bankroll so staked solo
+/// play can pay out.
+///
+/// NOTE: these bots are no longer *registered* anywhere. SoloArena's
+/// `play(agentId, botId)` treats botId as a pure reference and never
+/// validates it — the opponent you actually fight is the game server's live
+/// AI, not a minted NFT. The roster exists only so the app has real names
+/// and stats to show in the solo lobby. (The old `solo.setBot(id, true)`
+/// call here is why this script stopped compiling: that function was
+/// removed when SoloArena was redesigned around live combat.)
 ///
 /// Run with the wallet you want as BOT_OWNER (max 5 agents per wallet):
-/// forge script script/SetupBots.s.sol --rpc-url botchain_testnet --broadcast
+///   source .env
+///   forge script script/SetupBots.s.sol:SetupBots --rpc-url testnet --broadcast
 contract SetupBots is Script {
     function run() external {
         uint256 pk = vm.envUint("PRIVATE_KEY"); // bot-owner wallet key
@@ -33,12 +42,17 @@ contract SetupBots is Script {
         vm.startBroadcast(pk);
         for (uint256 i = 0; i < 5; i++) {
             uint256 id = nft.mintAgent(names[i], personalities[i]);
-            solo.setBot(id, true); // requires this wallet to be SoloArena owner
             console.log("Bot minted: %s -> tokenId %s", names[i], id);
         }
+        // fundHouse(), not the old fundVault(). The bankroll has to cover the
+        // 0.8x ABOVE each stake that a 1.8x win pays out — with an empty
+        // house, play() reverts StakeTooLarge for every staked fight.
         if (vaultFunding > 0) {
-            solo.fundVault{value: vaultFunding}();
-            console.log("Vault funded with %s wei", vaultFunding);
+            solo.fundHouse{value: vaultFunding}();
+            console.log("House bankroll funded with %s wei", vaultFunding);
+            console.log("Max stake now supported: %s wei", solo.maxStake());
+        } else {
+            console.log("VAULT_FUNDING_WEI unset - house NOT funded, staking will revert");
         }
         vm.stopBroadcast();
         console.log("Set BOT_OWNER_ADDRESS to this wallet in backend/.env");

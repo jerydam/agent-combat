@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -11,6 +12,7 @@ from ..engine.simulator import simulate
 from ..models import AgentCache, AgentLoadout
 from ..schemas import AgentOut
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 
@@ -107,10 +109,20 @@ async def sync_from_chain(body: SyncBody, db: AsyncSession = Depends(get_db)):
     def _scan() -> list[dict]:
         w3 = get_w3()
         nft = get_contracts(w3)[0]
-        events = nft.events.AgentMinted().get_logs(
-            from_block=0,
-            argument_filters={"owner": w3.to_checksum_address(body.owner)},
-        )
+        # The RPC caps eth_getLogs at s.log_chunk_blocks, so walk the range
+        # in windows instead of asking for all of history at once — an
+        # unbounded from_block=0 is rejected outright and fails every sync.
+        events = []
+        head = w3.eth.block_number
+        frm = max(0, s.deploy_block)
+        while frm <= head:
+            to = min(frm + s.log_chunk_blocks - 1, head)
+            events += nft.events.AgentMinted().get_logs(
+                from_block=frm,
+                to_block=to,
+                argument_filters={"owner": w3.to_checksum_address(body.owner)},
+            )
+            frm = to + 1
         out = []
         for ev in events:
             a = ev["args"]
@@ -130,6 +142,7 @@ async def sync_from_chain(body: SyncBody, db: AsyncSession = Depends(get_db)):
     try:
         found = await asyncio.get_event_loop().run_in_executor(None, _scan)
     except Exception as exc:
+        log.exception("Agent sync scan failed for %s", body.owner)
         raise HTTPException(502, f"Chain scan failed: {exc}")
 
     added = 0
