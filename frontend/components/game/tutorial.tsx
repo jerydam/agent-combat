@@ -115,18 +115,29 @@ export const LESSONS: Lesson[] = [
   },
 ];
 
+/**
+ * Live coaching state, pushed by the server.
+ *
+ * The server drives this, not the client: it owns the clock, so it is the
+ * only thing that can freeze the fight at the exact moment a lesson makes
+ * sense. The client just renders what it is told and lights up a button.
+ */
 export interface TutorialState {
   index: number;
-  progress: number;
+  total: number;
   done: boolean;
+  id: string | null;
+  title: string | null;
+  text: string | null;
+  highlight: Highlight;
 }
 
 /** The coaching card. Deliberately compact — it must not cover the fight. */
 export function TutorialCoach({
-  state, onSkip, onFinish,
+  state, paused, onFinish,
 }: {
   state: TutorialState;
-  onSkip: () => void;
+  paused: boolean;
   onFinish: () => void;
 }) {
   if (state.done) {
@@ -145,17 +156,19 @@ export function TutorialCoach({
     );
   }
 
-  const lesson = LESSONS[state.index];
-  if (!lesson) return null;
-  const Icon = lesson.icon;
+  if (!state.title) return null;
+  const Icon = LESSONS.find((l) => l.id === state.id)?.icon ?? Swords;
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-12 z-30 flex justify-center px-3">
-      <div className="pointer-events-auto w-[min(94%,32rem)] rounded-xl border border-primary/60 bg-background/92 p-3 backdrop-blur">
+      <div className={cn(
+        'w-[min(94%,32rem)] rounded-xl border bg-background/95 p-3 backdrop-blur transition-colors',
+        paused ? 'border-warning shadow-[0_0_28px_hsl(42_100%_55%/0.35)]' : 'border-primary/60',
+      )}>
         {/* progress pips: where you are in the curriculum */}
         <div className="flex items-center gap-1.5">
-          {LESSONS.map((l, i) => (
-            <span key={l.id}
+          {Array.from({ length: state.total }).map((_, i) => (
+            <span key={i}
               className={cn('h-1 flex-1 rounded-full',
                 i < state.index ? 'bg-success'
                   : i === state.index ? 'bg-primary' : 'bg-border')} />
@@ -163,27 +176,30 @@ export function TutorialCoach({
         </div>
 
         <div className="mt-2 flex items-start gap-2.5">
-          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/50 bg-primary/10 text-primary">
+          <div className={cn(
+            'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border',
+            paused ? 'border-warning/60 bg-warning/15 text-warning'
+              : 'border-primary/50 bg-primary/10 text-primary',
+          )}>
             <Icon className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2">
-              <span className="font-display text-xs font-bold tracking-widest text-primary">
-                {lesson.title.toUpperCase()}
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className={cn('font-display text-xs font-bold tracking-widest',
+                paused ? 'text-warning' : 'text-primary')}>
+                {state.title.toUpperCase()}
               </span>
               <span className="font-display text-[10px] text-muted-foreground">
-                {state.index + 1}/{LESSONS.length}
-                {lesson.need > 1 && ` · ${state.progress}/${lesson.need}`}
+                {state.index + 1}/{state.total}
               </span>
+              {paused && (
+                <span className="animate-px-blink font-pixel pixel-text text-[8px] text-warning">
+                  ⏸ PAUSED
+                </span>
+              )}
             </div>
-            <p className="mt-0.5 text-sm font-semibold leading-snug">{lesson.instruction}</p>
-            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{lesson.detail}</p>
+            <p className="mt-1 text-sm font-semibold leading-snug">{state.text}</p>
           </div>
-          <button onClick={onSkip}
-            title="Skip this lesson"
-            className="shrink-0 rounded-lg border border-border px-2 py-1 text-[10px] text-muted-foreground">
-            SKIP <ChevronRight className="inline h-3 w-3" />
-          </button>
         </div>
       </div>
     </div>

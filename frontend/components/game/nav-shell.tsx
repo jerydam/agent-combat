@@ -19,6 +19,8 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ElementType }[] = [
   { href: '/create', label: 'Mint Agent', icon: Plus },
   { href: '/arena', label: 'Arena', icon: Swords },
   { href: '/combat', label: 'Combat', icon: Flame },
+  // /pvp is reached from Arena, not the top-level nav — Arena is the
+  // single "fight other players" hub (live + simulated duels).
   { href: '/training', label: 'Training', icon: Dumbbell },
   { href: '/leagues', label: 'Leagues', icon: Users },
   { href: '/tournaments', label: 'Tournaments', icon: Medal },
@@ -82,7 +84,7 @@ export function NavShell({ children }: { children: React.ReactNode }) {
   // Immersive, landscape, chrome-free. /training/fight is on this list
   // because it renders the real combat screen — the portrait /training
   // page itself deliberately is NOT.
-  const GAME_SCREENS = ['/combat', '/training/fight'];
+  const GAME_SCREENS = ['/combat', '/training/fight', '/pvp'];
   const isGameScreen = GAME_SCREENS.some((p) => pathname?.startsWith(p));
 
   // Everything that is NOT a game screen is portrait, plain and scrollable.

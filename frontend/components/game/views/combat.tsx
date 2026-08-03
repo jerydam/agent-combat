@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
-  combatWsUrl, loadSettings, saveSettings, sfx, haptic,
-  type CombatSettings, type RewardInfo, type ServerMsg, type StakeInfo, type StateMsg,
+  combatWsUrl, pvpWsUrl, loadSettings, saveSettings, sfx, haptic,
+  type CombatSettings, type OpponentInfo, type RewardInfo, type ServerMsg,
+  type StakeInfo, type StateMsg,
 } from '@/lib/combat-client';
 import { writeContract, eventArgs } from '@/lib/tx';
 import { ADDRESSES, SOLO_ARENA_ABI } from '@/lib/contracts';
@@ -120,11 +121,18 @@ function FighterSprite({ src, glyph, flip }: { src?: string; glyph: string; flip
  * by the live event stream. Sharing this component is deliberate: a
  * tutorial built on a mock would teach controls that don't exist.
  */
-export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
+export function CombatView({ tutorial = false, pvp = false }: {
+  tutorial?: boolean; pvp?: boolean;
+} = {}) {
   const { address, connected } = useWallet();
   const [settings, setSettings] = useState<CombatSettings>(loadSettings);
   const [showSettings, setShowSettings] = useState(false);
-  const [phase, setPhase] = useState<'setup' | 'connecting' | 'countdown' | 'fight' | 'result'>('setup');
+  const [phase, setPhase] = useState<'setup' | 'connecting' | 'queue' | 'countdown' | 'fight' | 'result'>('setup');
+  // --- PvP ---
+  const [opponent, setOpponent] = useState<OpponentInfo | null>(null);
+  const [queueInfo, setQueueInfo] = useState<{ waiting: number; code: string | null } | null>(null);
+  const [roomCode, setRoomCode] = useState('');
+  const [oppLeft, setOppLeft] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const [state, setState] = useState<StateMsg | null>(null);
   const [result, setResult] = useState<{ winner: number; win_reason?: string; log: any; reward?: RewardInfo; stake?: StakeInfo } | null>(null);
@@ -143,56 +151,26 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
   const [payout, setPayout] = useState<{ ok: boolean; problems: string[]; max_stake_wei: string } | null>(null);
   const [settleState, setSettleState] = useState<'idle' | 'retrying' | 'paid'>('idle');
 
-  // ---- tutorial ----
-  const [tut, setTut] = useState<TutorialState>({ index: 0, progress: 0, done: false });
-  // Lesson checks run inside the event handler, which is memoised — a ref
-  // keeps them reading the CURRENT lesson instead of the one captured
-  // when the handler was built.
-  const tutRef = useRef(tut);
-  tutRef.current = tut;
+  // ---- tutorial (server-driven: the backend owns the clock, so only it
+  // can freeze the fight at a teachable moment) ----
+  const [tut, setTut] = useState<TutorialState>({
+    index: 0, total: 5, done: false, id: null, title: null, text: null, highlight: null,
+  });
+  const [frozen, setFrozen] = useState(false);
 
-  const advanceLesson = useCallback(() => {
-    setTut((s) => {
-      const next = s.index + 1;
-      return next >= LESSONS.length
-        ? { index: s.index, progress: 0, done: true }
-        : { index: next, progress: 0, done: false };
-    });
-    // computed inline rather than via `vol`, which is declared further down
-    sfx.count(settings.sfx ? settings.masterVolume : 0);
-  }, [settings.sfx, settings.masterVolume]);
+  /**
+   * Measured from the stage itself, not a media query. In the iOS
+   * fallback the page is CSS-rotated, so the viewport still reports
+   * portrait while the player is looking at a landscape stage.
+   */
+  const [stageBox, setStageBox] = useState({ w: 0, h: 0 });
+  const shortStage = stageBox.h > 0 && stageBox.h < 520;
 
-  /** Feed one live event to the current lesson. */
-  const tutorialObserve = useCallback((e: any, me?: FighterSnap) => {
-    const s = tutRef.current;
-    if (s.done) return;
-    const lesson = LESSONS[s.index];
-    if (!lesson || !lesson.match(e, me)) return;
-    setTut((cur) => {
-      if (cur.index !== s.index || cur.done) return cur;
-      const progress = cur.progress + 1;
-      if (progress < lesson.need) return { ...cur, progress };
-      const next = cur.index + 1;
-      return next >= LESSONS.length
-        ? { index: cur.index, progress: 0, done: true }
-        : { index: next, progress: 0, done: false };
-    });
-  }, []);
   const { rotated, containerStyle, activate } = useLandscapeGameMode();
   const wsRef = useRef<WebSocket | null>(null);
   const holdStart = useRef<number>(0);
   const floatId = useRef(0);
   const vol = settings.sfx ? settings.masterVolume : 0;
-
-  /**
-   * Measured from the stage itself, not a media query. In the iOS
-   * fallback the page is CSS-rotated, so the viewport still reports
-   * portrait while the player is looking at a landscape stage — a
-   * `landscape:` breakpoint would be wrong exactly where it matters.
-   * clientHeight of the rotated box is the real usable height.
-   */
-  const [stageBox, setStageBox] = useState({ w: 0, h: 0 });
-  const shortStage = stageBox.h > 0 && stageBox.h < 520;
 
   // ---- pixelverse fx plumbing
   const stageRef = useRef<HTMLDivElement>(null);
@@ -281,6 +259,9 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
 
   const chosen = myAgents.find((a) => a.token_id === agentId);
   const mySkin = chosen?.skin ? AVATARS[chosen.skin]?.src : undefined;
+  // In PvP the right-hand fighter is a real player, not "BOT"
+  const oppName = opponent?.name ?? 'BOT';
+  const oppSkin = opponent?.skin ? AVATARS[opponent.skin]?.src : undefined;
 
   const update = (patch: Partial<CombatSettings>) =>
     setSettings((s) => { const next = { ...s, ...patch }; saveSettings(next); return next; });
@@ -293,7 +274,6 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
 
   const handleEvents = useCallback((events: any[], me?: FighterSnap) => {
     for (const e of events) {
-      if (tutorial) tutorialObserve(e, me);
       // `who` is the attacker; the sprite that REACTS is the other one
       const victim = (e.who === 0 ? 1 : 0) as 0 | 1;
       switch (e.kind) {
@@ -367,7 +347,62 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
           break;
       }
     }
-  }, [vol, settings, addFloat, burstAt, punchImpact, tutorial, tutorialObserve]);
+  }, [vol, settings, addFloat, burstAt, punchImpact]);
+
+  /** Enter the live PvP queue (or a private room, if a code is given). */
+  const connectPvp = useCallback((code?: string) => {
+    if (!address) return toast.error('Connect your wallet to play PvP');
+    activate();
+    setPhase('connecting');
+    setResult(null);
+    setState(null);
+    setOpponent(null);
+    setOppLeft(false);
+    fxRef.current?.clear();
+
+    const params: Record<string, string | number> = { wallet: address };
+    if (agentId !== null) params.agent_id = agentId;
+    if (code) params.room = code;
+
+    const ws = new WebSocket(pvpWsUrl(params));
+    wsRef.current = ws;
+    ws.onmessage = (ev) => {
+      const msg: ServerMsg = JSON.parse(ev.data);
+      if (msg.kind === 'countdown') { setPhase('countdown'); setCountdown(msg.n); sfx.count(vol); }
+      else if (msg.kind === 'fight') {
+        setPhase('fight');
+        sfx.fight(vol);
+        requestAnimationFrame(() => { burstAt(0, 'spawn'); burstAt(1, 'spawn'); });
+      }
+      else if (msg.kind === 'state') {
+        setState(msg);
+        if (msg.events.length) handleEvents(msg.events, msg.fighters[0]);
+      }
+      else if (msg.kind === 'result') { setResult(msg); setPhase('result'); }
+      else if (msg.kind === 'queued') { setPhase('queue'); setQueueInfo({ waiting: msg.waiting, code: msg.code }); }
+      else if (msg.kind === 'matched') {
+        setOpponent(msg.opponent);
+        setOppLeft(false);
+        toast.success(`Matched against ${msg.opponent.name}`);
+      }
+      else if (msg.kind === 'no_match') {
+        toast.message('No opponent found', { description: msg.message });
+        setPhase('setup');
+      }
+      else if (msg.kind === 'opponent_left') { setOppLeft(true); toast.warning(msg.message); }
+      else if (msg.kind === 'error') { toast.error(msg.message); setPhase('setup'); }
+    };
+    ws.onerror = () => setPhase('setup');
+    ws.onclose = () => {
+      setPhase((p) => (p === 'result' ? p : 'setup'));
+    };
+  }, [address, agentId, vol, handleEvents, activate, burstAt]);
+
+  const leaveQueue = useCallback(() => {
+    wsRef.current?.close();
+    setPhase('setup');
+    setQueueInfo(null);
+  }, []);
 
   const connect = useCallback((gameId?: number) => {
     activate();
@@ -380,7 +415,7 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
       // need incoming attacks to practise blocks and parries) but weak,
       // and NO wallet/agent attached — training must not touch your
       // record, XP or points.
-      ? { personality: 0, power: 72, bot_personality: 0, difficulty: 40 }
+      ? { personality: 0, power: 72, bot_personality: 0, difficulty: 40, tutorial: 1 }
       : { personality: 0, power: 72, bot_personality: botPersonality, difficulty };
     if (!tutorial) {
       if (address) params.wallet = address;         // earn points every fight
@@ -401,30 +436,38 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
       else if (msg.kind === 'state') {
         setState(msg);
         if (msg.events.length) handleEvents(msg.events, msg.fighters[0]);
-        // passive lessons (stamina) complete by watching your own state
-        if (tutorial) {
-          const s = tutRef.current;
-          const lesson = LESSONS[s.index];
-          if (!s.done && lesson?.observe?.(msg.fighters[0])) advanceLesson();
-        }
+        // the server freezes the fight for coaching prompts
+        if (tutorial) setFrozen(Boolean((msg as any).paused));
       }
       else if (msg.kind === 'error') { toast.error(msg.message); setPhase('setup'); }
       else if (msg.kind === 'result') { setResult(msg); setPhase('result'); }
+      // ---- live PvP handshake ----
+      else if (msg.kind === 'queued') {
+        setPhase('queue');
+        setQueueInfo({ waiting: msg.waiting, code: msg.code });
+      }
+      else if (msg.kind === 'matched') {
+        setOpponent(msg.opponent);
+        setOppLeft(false);
+        toast.success(`Matched against ${msg.opponent.name}`);
+      }
+      else if (msg.kind === 'no_match') {
+        toast.message('No opponent found', { description: msg.message });
+        setPhase('setup');
+      }
+      else if (msg.kind === 'opponent_left') {
+        setOppLeft(true);
+        toast.warning(msg.message);
+      }
+      else if ((msg as any).kind === 'coach') {
+        const c = msg as any;
+        setTut({ index: c.index, total: c.total, done: c.done, id: c.id,
+                 title: c.title, text: c.text, highlight: c.highlight });
+      }
     };
     ws.onerror = () => setPhase('setup');
     ws.onclose = () => { setPhase((p) => (p === 'result' ? p : p === 'fight' || p === 'countdown' || p === 'connecting' ? 'setup' : p)); };
-  }, [botPersonality, difficulty, vol, handleEvents, activate, address, agentId, burstAt,
-      tutorial, advanceLesson]);
-
-  // Escape hatch: a lesson with autoAdvanceMs moves on by itself so a
-  // player who can't land a super (or never gasses out) is never trapped.
-  useEffect(() => {
-    if (!tutorial || tut.done || phase !== 'fight') return;
-    const lesson = LESSONS[tut.index];
-    if (!lesson?.autoAdvanceMs) return;
-    const id = setTimeout(advanceLesson, lesson.autoAdvanceMs);
-    return () => clearTimeout(id);
-  }, [tutorial, tut.index, tut.done, phase, advanceLesson]);
+  }, [botPersonality, difficulty, vol, handleEvents, activate, address, agentId, burstAt, tutorial]);
 
   useEffect(() => () => wsRef.current?.close(), []);
 
@@ -525,7 +568,7 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
   const bot = state?.fighters[1];
   // which control the current lesson wants the player to press
   const highlight: Highlight =
-    tutorial && !tut.done && phase === 'fight' ? LESSONS[tut.index]?.highlight ?? null : null;
+    tutorial && !tut.done && phase === 'fight' ? tut.highlight : null;
   const now = state?.t ?? 0;
   const reason = result?.win_reason ? WIN_REASON_TEXT[result.win_reason] : undefined;
   const iWon = result?.winner === 0;
@@ -574,7 +617,7 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
               <div key={i} className={cn('flex-1 space-y-1.5', right && 'text-right')}>
                 <div className={cn('flex items-baseline gap-2 font-pixel pixel-text text-[8px] sm:text-[10px]', right && 'flex-row-reverse')}>
                   <span className={i === 0 ? 'text-primary' : 'text-accent'}>
-                    {(i === 0 ? (chosen?.name ?? 'YOU') : 'BOT').toUpperCase().slice(0, 10)}
+                    {(i === 0 ? (chosen?.name ?? 'YOU') : oppName).toUpperCase().slice(0, 10)}
                   </span>
                   <span className={cn('tabular-nums', critical ? 'animate-px-blink text-destructive' : 'text-muted-foreground')}>
                     {f.hp}/{f.max_hp}
@@ -636,7 +679,7 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
           {[
             { f: me!, slot: 0 as const, glyph: '⚔', src: mySkin,
               color: 'from-primary/35 to-primary/5 ring-primary/60' },
-            { f: bot!, slot: 1 as const, glyph: ['⚔', '🛡', '◈'][botPersonality], src: undefined,
+            { f: bot!, slot: 1 as const, glyph: ['⚔', '🛡', '◈'][botPersonality], src: oppSkin,
               color: 'from-accent/35 to-accent/5 ring-accent/60' },
           ].map(({ f, slot, glyph, src, color }) => {
             const winding = f.phase === 'windup';
@@ -733,9 +776,15 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
             </div>
             <div className="pixel-frame animate-slide-in-r flex h-28 w-28 items-center justify-center bg-accent/15 text-6xl sm:h-32 sm:w-32 sm:text-7xl"
               style={{ ['--px-edge' as any]: 'hsl(var(--accent))' }}>
-              <FighterSprite glyph={['⚔', '🛡', '◈'][botPersonality]} flip />
+              <FighterSprite src={oppSkin} glyph={['⚔', '🛡', '◈'][botPersonality]} flip />
             </div>
           </div>
+          {pvp && opponent && (
+            <div className="absolute inset-x-0 top-6 flex items-center justify-around px-[10%] font-pixel pixel-text text-[10px]">
+              <span className="text-primary">{(chosen?.name ?? 'YOU').toUpperCase().slice(0, 12)}</span>
+              <span className="text-accent">{opponent.name.toUpperCase().slice(0, 12)}</span>
+            </div>
+          )}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span key={countdown} className="animate-px-slam font-pixel pixel-text text-6xl text-foreground sm:text-7xl">
               {countdown}
@@ -762,7 +811,12 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
 
               <h1 className={cn('font-pixel pixel-text leading-relaxed',
                 shortStage ? 'text-base' : 'text-xl sm:text-3xl')}>
-                {tutorial ? (
+                {pvp ? (
+                  <>
+                    <span className="text-primary text-glow">VERSUS</span>{' '}
+                    <span className="text-accent text-glow-accent">LIVE</span>
+                  </>
+                ) : tutorial ? (
                   <span className="text-primary text-glow">TRAINING</span>
                 ) : (
                   <>
@@ -773,7 +827,69 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
               </h1>
               <div className="split-line mx-auto mt-2 w-40" />
 
-              {tutorial ? (
+              {pvp ? (
+                // ------------------------------------------- live PvP
+                <>
+                  <p className={cn('mx-auto mt-3 max-w-lg text-muted-foreground',
+                    shortStage ? 'text-xs' : 'text-sm')}>
+                    Real-time against another player — same engine, same controls, no AI.
+                    Your agent&apos;s stats and equipped avatar apply, and the winner takes
+                    points and XP.
+                  </p>
+
+                  {connected && myAgents.length > 0 && (
+                    <div className="mx-auto mt-4 max-w-md text-left">
+                      <div className="mb-1.5 font-display text-[10px] tracking-widest text-muted-foreground">
+                        FIGHT AS
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {myAgents.map((a) => (
+                          <button key={a.token_id} onClick={() => setAgentId(a.token_id)}
+                            className={cn('flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs',
+                              agentId === a.token_id ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground')}>
+                            {a.skin && AVATARS[a.skin] && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={AVATARS[a.skin].src} alt="" className="h-4 w-4 rounded" draggable={false} />
+                            )}
+                            {a.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {!connected && (
+                    <p className="mt-3 text-xs text-warning">
+                      Connect your wallet to play against other people.
+                    </p>
+                  )}
+
+                  <div className="mx-auto mt-5 flex max-w-md flex-col gap-3">
+                    <Button size={shortStage ? 'default' : 'lg'} disabled={!connected}
+                      onClick={() => connectPvp()}
+                      className="animate-pulse-glow font-display tracking-widest">
+                      <Swords className="mr-2 h-5 w-5" /> FIND OPPONENT
+                    </Button>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={roomCode}
+                        onChange={(e) => setRoomCode(e.target.value.replace(/[^a-zA-Z0-9-]/g, ''))}
+                        placeholder="room code"
+                        maxLength={24}
+                        className="min-w-0 flex-1 rounded-lg border border-border bg-input px-2.5 py-2 text-sm outline-none focus:border-primary"
+                      />
+                      <Button variant="outline" disabled={!connected || !roomCode.trim()}
+                        onClick={() => connectPvp(roomCode.trim().toLowerCase())}
+                        className="shrink-0 font-display">
+                        PLAY A FRIEND
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Both of you enter the same code to fight each other directly.
+                    </p>
+                  </div>
+                </>
+              ) : tutorial ? (
                 // ---------------------------------------------- training
                 <>
                   <p className={cn('mx-auto mt-3 max-w-lg text-muted-foreground',
@@ -802,7 +918,7 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
                   </div>
 
                   <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-                    <Button size={shortStage ? 'default' : 'lg'} onClick={() => { setTut({ index: 0, progress: 0, done: false }); connect(); }}
+                    <Button size={shortStage ? 'default' : 'lg'} onClick={() => { setTut({ index: 0, total: 5, done: false, id: null, title: null, text: null, highlight: null }); connect(); }}
                       className="animate-pulse-glow font-display tracking-widest">
                       <Dumbbell className="mr-2 h-5 w-5" />
                       {tut.index > 0 || tut.done ? 'TRAIN AGAIN' : 'START TRAINING'}
@@ -962,6 +1078,44 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
         <div className="absolute inset-0 z-30 flex items-center justify-center text-muted-foreground">Entering the arena…</div>
       )}
 
+      {/* waiting for a live opponent */}
+      {phase === 'queue' && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-background/95 p-6 text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <h2 className="font-pixel pixel-text text-sm text-primary">
+            {queueInfo?.code ? 'WAITING FOR YOUR FRIEND' : 'FINDING AN OPPONENT'}
+          </h2>
+          {queueInfo?.code ? (
+            <p className="max-w-sm text-xs text-muted-foreground">
+              Share this room code — whoever joins with it fights you:
+              <span className="mt-2 block font-display text-lg tracking-[0.3em] text-warning">
+                {queueInfo.code.toUpperCase()}
+              </span>
+            </p>
+          ) : (
+            <p className="max-w-sm text-xs text-muted-foreground">
+              {queueInfo && queueInfo.waiting > 0
+                ? `${queueInfo.waiting} other player${queueInfo.waiting > 1 ? 's' : ''} searching.`
+                : 'You are first in the queue.'}{' '}
+              You&apos;ll be matched with the next player who joins. This times out after
+              90 seconds.
+            </p>
+          )}
+          <Button variant="outline" onClick={leaveQueue} className="font-display tracking-widest">
+            CANCEL
+          </Button>
+        </div>
+      )}
+
+      {/* opponent rage-quit: their agent is on AI now */}
+      {oppLeft && (phase === 'fight' || phase === 'countdown') && (
+        <div className="pointer-events-none absolute inset-x-0 top-24 z-30 flex justify-center">
+          <span className="rounded-lg border border-warning/60 bg-background/90 px-3 py-1.5 font-display text-[10px] tracking-widest text-warning">
+            OPPONENT DISCONNECTED — AI TOOK OVER
+          </span>
+        </div>
+      )}
+
       {/* result: outcome + WHY + what you earned */}
       {phase === 'result' && result && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-background/95 p-6 text-center">
@@ -981,7 +1135,7 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
               {result.log.fighters.map((f: any, i: number) => (
                 <div key={i} className="space-y-0.5">
                   <div className={cn('font-display font-bold', i === 0 ? 'text-primary' : 'text-accent')}>
-                    {i === 0 ? 'YOU' : 'BOT'} · {f.score} pts
+                    {i === 0 ? 'YOU' : oppName.toUpperCase().slice(0, 12)} · {f.score} pts
                   </div>
                   <div className="text-muted-foreground">
                     {f.hits} hits · {f.defends} defends · {f.parries} parries
@@ -1042,7 +1196,14 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
           {!result.reward && (
             <p className="text-xs text-muted-foreground">Connect your wallet before fighting to earn points and record wins.</p>
           )}
-          {tutorial ? (
+          {pvp ? (
+            <>
+              <Button size="lg" onClick={() => connectPvp()} className="font-display tracking-widest">
+                FIND ANOTHER OPPONENT
+              </Button>
+              <Button variant="ghost" onClick={() => setPhase('setup')}>Back to lobby</Button>
+            </>
+          ) : tutorial ? (
             <>
               {/* Lesson progress survives the bell — a KO mid-curriculum
                   shouldn't cost the player everything they've learned. */}
@@ -1123,7 +1284,7 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
       {tutorial && (phase === 'fight' || tut.done) && (
         <TutorialCoach
           state={tut}
-          onSkip={advanceLesson}
+          paused={frozen}
           onFinish={() => { wsRef.current?.close(); router.push('/combat'); }}
         />
       )}

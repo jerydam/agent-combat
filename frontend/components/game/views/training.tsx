@@ -76,9 +76,11 @@ export function TrainingView() {
           </h2>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">
             A live fight against a deliberately weak sparring bot — the same engine and
-            the same controls as ranked combat. Each step tells you which button to press
-            and what the move actually does, and only completes when you pull it off.
-            Nothing you do here touches your record, XP or points.
+            the same controls as ranked combat. When your opponent winds up to hit you, the
+            game <b className="text-warning">freezes</b>, tells you exactly what to do, and
+            lights up the button. Time only restarts once you press it, so you learn the
+            timing without being punished for reading. Nothing here touches your record,
+            XP or points.
           </p>
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

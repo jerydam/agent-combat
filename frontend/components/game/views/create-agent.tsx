@@ -107,7 +107,13 @@ export function CreateAgentView() {
             </div>
           </div>
 
-          <Button onClick={mint} disabled={minting} className="w-full font-display tracking-wider" size="lg">
+          {/* h-auto + whitespace-normal: "MINTING ON BOT CHAIN…" at
+              tracking-wider is wider than a 360px phone, and Button is
+              whitespace-nowrap by default, so it overflowed instead of
+              wrapping. */}
+          <Button onClick={mint} disabled={minting}
+            className="h-auto w-full whitespace-normal py-3 text-center font-display text-sm leading-tight tracking-wider sm:text-base"
+            size="lg">
             {minting ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> MINTING ON BOT CHAIN…</>
             ) : connected ? (

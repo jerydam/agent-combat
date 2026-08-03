@@ -30,6 +30,59 @@ TICK_MS = 50
 COUNTDOWN_MS = 3000
 
 
+def _flip_who(e: dict) -> dict:
+    """Mirror a single event's actor index."""
+    who = e.get("who")
+    return {**e, "who": 1 - who} if isinstance(who, int) else e
+
+
+def orient(payload: dict, slot: int) -> dict:
+    """Rewrite a broadcast so index 0 is always the RECEIVING player.
+
+    Both fighters are slot 0 from their own point of view. Rather than
+    teach the client to index by slot everywhere — HUD, damage numbers,
+    particles, knockback, win text, all of which assume "0 is me" — the
+    server mirrors the payload once per recipient. Player 1 then runs the
+    exact same UI code as player 0 with no special cases.
+
+    This is a VIEW ONLY. The canonical log that gets hashed into
+    movesHash is `match.result_log()` taken directly from the engine, and
+    is never passed through here, so mirroring can't affect what is
+    committed on-chain.
+    """
+    out = dict(payload)
+
+    # Per-recipient fields (rewards differ per player, and broadcasting
+    # both would leak the opponent's payout into your result screen).
+    by_slot = out.pop("by_slot", None)
+    if isinstance(by_slot, dict):
+        out.update(by_slot.get(str(slot)) or by_slot.get(slot) or {})
+
+    if slot == 0:
+        return out
+
+    fighters = out.get("fighters")
+    if isinstance(fighters, list) and len(fighters) == 2:
+        out["fighters"] = [fighters[1], fighters[0]]
+    if isinstance(out.get("events"), list):
+        out["events"] = [_flip_who(e) for e in out["events"]]
+    if out.get("winner") in (0, 1):
+        out["winner"] = 1 - out["winner"]
+
+    log = out.get("log")
+    if isinstance(log, dict):
+        log = dict(log)
+        lf = log.get("fighters")
+        if isinstance(lf, list) and len(lf) == 2:
+            log["fighters"] = [lf[1], lf[0]]
+        if log.get("winner") in (0, 1):
+            log["winner"] = 1 - log["winner"]
+        if isinstance(log.get("trace"), list):
+            log["trace"] = [_flip_who(e) for e in log["trace"]]
+        out["log"] = log
+    return out
+
+
 @dataclass
 class Room:
     room_id: str
@@ -42,6 +95,12 @@ class Room:
     wallet: str = ""       # player wallet (slot 0), for rewards
     agent_id: int | None = None  # minted agent fighting in slot 0, if any
     solo_game_id: int | None = None  # on-chain staked SoloArena game
+    # --- PvP: per-slot identity, since both slots are real players ---
+    mode: str = "solo"                                  # solo | pvp
+    coach: object | None = None    # training only: freezes the fight to teach
+    wallets: dict[int, str] = field(default_factory=dict)
+    agent_ids: dict[int, int | None] = field(default_factory=dict)
+    skins: dict[int, str] = field(default_factory=dict)   # avatar item ids
 
 
 class RoomManager:
@@ -98,6 +157,19 @@ class RoomManager:
             if all(b.who != slot for b in room.bots):
                 room.bots.append(BotController(room.match, slot))
                 log.info("Room %s: slot %s AI takeover", room.room_id, slot)
+                # Tell whoever is left why their opponent suddenly plays
+                # like a bot — silently swapping a human for an AI
+                # mid-fight would just look like the game cheating.
+                if room.mode == "pvp":
+                    for other, ws in list(room.humans.items()):
+                        try:
+                            await ws.send_json({
+                                "kind": "opponent_left",
+                                "message": "Opponent disconnected — their agent is "
+                                           "being played by AI for the rest of the round.",
+                            })
+                        except Exception:
+                            pass
         if not room.humans and (room.match.over or not room.started):
             self._cleanup(room)
 
@@ -118,10 +190,28 @@ class RoomManager:
                 now = time.monotonic()
                 dt = (now - last) * 1000
                 last = now
-                m.tick(dt)
-                for bot in room.bots:
-                    bot.update()
-                await self._broadcast(room, {"kind": "state", **m.snapshot()})
+
+                if room.coach is not None:
+                    room.coach.before_tick(m)
+
+                if m.paused:
+                    # Frozen for a coaching prompt: no time passes, no bot
+                    # decisions, no new events — but the player's taps still
+                    # reach the engine, stamped at the frozen timestamp.
+                    m.events = []
+                else:
+                    m.tick(dt)
+                    for bot in room.bots:
+                        bot.update()
+
+                extra: dict = {}
+                if room.coach is not None:
+                    room.coach.after_tick(m)
+                    extra = room.coach.paused_payload(m)
+                    if (note := room.coach.message(m)) is not None:
+                        await self._broadcast(room, note)
+
+                await self._broadcast(room, {"kind": "state", **m.snapshot(), **extra})
 
             extra: dict = {}
             if room.on_finish is not None:
@@ -146,9 +236,10 @@ class RoomManager:
 
     async def _broadcast(self, room: Room, payload: dict) -> None:
         dead = []
-        for slot, ws in room.humans.items():
+        # list() because leave() can mutate humans while we iterate
+        for slot, ws in list(room.humans.items()):
             try:
-                await ws.send_json(payload)
+                await ws.send_json(orient(payload, slot))
             except Exception:
                 dead.append(slot)
         for slot in dead:

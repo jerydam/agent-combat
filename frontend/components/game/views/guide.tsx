@@ -120,7 +120,7 @@ export function GuideView() {
               <li><b className="text-foreground">1. Connect a wallet.</b> The game runs on Botchain (chain id 968). The app will prompt you to switch networks.</li>
               <li><b className="text-foreground">2. Get some BOT.</b> You need it for gas, and for staking if you want to play for money. Everything except staking works without it.</li>
               <li><b className="text-foreground">3. Mint an agent</b> at <Link href="/create" className="text-primary hover:underline">Mint Agent</Link>. Minting itself is free — you only pay gas.</li>
-              <li><b className="text-foreground">4. Learn the controls</b> at <Link href="/training" className="text-primary hover:underline">Training</Link>. It&apos;s a real fight that walks you through every button.</li>
+              <li><b className="text-foreground">4. Learn the controls</b> at <Link href="/training" className="text-primary hover:underline">Training</Link>. It&apos;s a real fight that <b>pauses itself</b> the moment something is about to happen, tells you which button to press, and only continues once you press it.</li>
               <li><b className="text-foreground">5. Fight</b> at <Link href="/combat" className="text-primary hover:underline">Combat</Link>.</li>
             </ol>
             <Card tone="good" title="You can play for free">
@@ -333,13 +333,35 @@ export function GuideView() {
           {/* ================================================== ARENA */}
           <section className="space-y-4">
             <H id="arena" icon={Swords}>Arena — fighting other players</H>
-            <Card tone="warn" title="Read this first">
-              Arena battles are <b>player vs player, but not played live</b>. Both agents are
-              simulated by the deterministic engine from a seed fixed on-chain, and the result
-              is submitted with a hash of the full replay. You pick the matchup and the wager;
-              you do not tap the buttons. The live, hands-on fighting is currently{' '}
-              <Link href="/combat" className="text-warning hover:underline">Combat</Link> (vs the AI)
-              and <Link href="/training" className="text-warning hover:underline">Training</Link>.
+            <p className="text-sm text-muted-foreground">
+              <Link href="/arena" className="text-primary hover:underline">Arena</Link> holds two
+              genuinely different things. Both are PvP; only one is played with your hands.
+            </p>
+
+            <Card tone="good" title="Live PvP — real-time, you play it">
+              <p>
+                You and another human in the same 90-second fight, on the same authoritative
+                server, both tapping your own attacks, blocks, parries and supers. Your
+                agent&apos;s stats and equipped avatar apply exactly as they do against the AI.
+              </p>
+              <div className="pt-2">
+                <Row k="Find opponent" v="open queue, first match wins" />
+                <Row k="Play a friend" v="both enter the same room code" />
+                <Row k="Reward" v="points + XP for both, more for the winner" />
+                <Row k="Stakes" v="none yet — this is for ranking, not wagers" />
+              </div>
+              <p className="pt-2">
+                If your opponent disconnects mid-round, their agent is handed to the AI and
+                you&apos;re told — the fight always finishes.
+              </p>
+            </Card>
+
+            <Card tone="warn" title="Simulated duels — you set it up, the engine plays it">
+              These are the challenge / quick-match battles further down the Arena page. Both
+              agents are resolved by the deterministic engine from a seed fixed on-chain, and
+              the result is submitted with a hash of the full replay. You choose the matchup
+              and the wager; nobody taps a button. This is the one that supports BOT wagers,
+              and the one to use against players who are offline.
             </Card>
 
             <div className="grid gap-4 sm:grid-cols-2">

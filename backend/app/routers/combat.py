@@ -34,6 +34,8 @@ from ..market.catalog import ITEM_BY_ID, avatar_mods, merge_mods
 from ..models import (AgentCache, AgentLoadout, CombatMatchRecord,
                       PlayerProgress, SoloGame)
 from ..combat.rooms import Room, manager
+from ..combat.matchmaker import Seat, matchmaker, set_on_finish
+from ..combat.coach import Coach
 
 log = logging.getLogger("arena.combat")
 
@@ -205,6 +207,173 @@ async def _award(room: Room) -> dict:
     return extra
 
 
+async def _load_player(wallet: str, agent_id: int | None, fallback_name: str):
+    """(stats, mods, skin, name) for a player's chosen agent.
+
+    Ownership is checked here rather than trusted from the client: a
+    forged agent_id would otherwise let anyone fight with someone else's
+    maxed-out agent and its avatar bonuses.
+    """
+    stats = None
+    mods: dict = {}
+    skin = ""
+    if agent_id is not None:
+        async with SessionLocal() as db:
+            cached = await db.get(AgentCache, agent_id)
+            if cached is not None and wallet and cached.owner.lower() == wallet.lower():
+                loadout = await db.get(AgentLoadout, agent_id)
+                if loadout:
+                    skin = loadout.skin or ""
+                    power = None
+                    if loadout.power and (it := ITEM_BY_ID.get(loadout.power)) and it.power:
+                        power = it.power
+                    mods = merge_mods(avatar_mods(loadout.skin), power)
+                stats = ChainStats(
+                    token_id=cached.token_id,
+                    name=cached.name,
+                    personality=Personality(cached.personality),
+                    attack=cached.attack, defense=cached.defense,
+                    speed=cached.speed, intelligence=cached.intelligence,
+                    level=cached.level, tier=1,
+                )
+    if stats is None:
+        # no agent (or not theirs): fight as an even, unmodified stand-in
+        agent_id = None
+        mods = {}
+        skin = ""
+        stats = _synthetic(fallback_name, 0, 70, 1)
+    return stats, mods, skin, stats.name, agent_id
+
+
+async def _award_pvp(room: Room) -> dict:
+    """Record a live PvP result for BOTH players.
+
+    Returns a `by_slot` payload so each player only ever sees their own
+    points and level-ups on the result screen.
+    """
+    m = room.match
+    out: dict[str, dict] = {}
+
+    async with SessionLocal() as db:
+        for slot in (0, 1):
+            wallet = (room.wallets.get(slot) or "").lower()
+            agent_id = room.agent_ids.get(slot)
+            won = m.winner == slot
+            my, opp = m.score(slot), m.score(1 - slot)
+            points = (WIN_BONUS + my // WIN_DIVISOR) if won else my // LOSS_DIVISOR
+            if not wallet:
+                continue
+
+            prog = await db.get(PlayerProgress, wallet)
+            if prog is None:
+                prog = PlayerProgress(wallet=wallet, points=0, claimed=[])
+                db.add(prog)
+            prog.points += points
+
+            leveled_up = False
+            if agent_id is not None:
+                agent = await db.get(AgentCache, agent_id)
+                if agent is not None:
+                    if won:
+                        agent.wins += 1
+                    else:
+                        agent.losses += 1
+                    agent.experience += XP_WIN if won else XP_LOSS
+                    while agent.experience >= agent.level * XP_PER_LEVEL:
+                        agent.experience -= agent.level * XP_PER_LEVEL
+                        agent.level += 1
+                        leveled_up = True
+
+            db.add(CombatMatchRecord(
+                wallet=wallet, agent_id=agent_id, won=won,
+                win_reason=m.win_reason, my_score=my, opp_score=opp,
+                points_awarded=points,
+            ))
+            out[str(slot)] = {"reward": {
+                "points": points, "total_points": prog.points,
+                "won": won, "leveled_up": leveled_up,
+            }}
+        await db.commit()
+
+    return {"by_slot": out} if out else {}
+
+
+set_on_finish(_award_pvp)
+
+
+@router.websocket("/ws/combat/pvp")
+async def pvp(ws: WebSocket):
+    """Live player-vs-player. Two humans, one authoritative engine.
+
+    Query: wallet, agent_id, and optionally room=<code> for a private
+    match with a friend instead of the open queue.
+    """
+    await ws.accept()
+    q = ws.query_params
+
+    wallet = (q.get("wallet") or "").lower()
+    if not wallet:
+        await ws.send_json({"kind": "error", "message": "Connect your wallet to play PvP"})
+        await ws.close()
+        return
+
+    agent_id = int(q["agent_id"]) if q.get("agent_id") else None
+    code = q.get("room") or ""
+
+    stats, mods, skin, name, agent_id = await _load_player(wallet, agent_id, "Challenger")
+    seat = Seat(ws=ws, wallet=wallet, agent_id=agent_id, stats=stats,
+                mods=mods, skin=skin, name=name)
+
+    await ws.send_json({
+        "kind": "queued",
+        "private": bool(code),
+        "code": code or None,
+        "waiting": await matchmaker.waiting_count(),
+    })
+
+    try:
+        paired = (await matchmaker.join_private(seat, code) if code
+                  else await matchmaker.join_random(seat))
+    except Exception:
+        log.exception("PvP matchmaking failed")
+        paired = None
+
+    if paired is None:
+        try:
+            await ws.send_json({
+                "kind": "no_match",
+                "message": "No opponent found. Try again, or fight the house AI.",
+            })
+            await ws.close()
+        except Exception:
+            pass
+        return
+
+    room, slot = paired
+    opponent = room.match.f[1 - slot].stats
+
+    await ws.send_json({
+        "kind": "matched",
+        "you": slot,
+        "opponent": {
+            "name": opponent.name,
+            "skin": room.skins.get(1 - slot, ""),
+            "level": opponent.level,
+        },
+    })
+
+    await manager.join(room, slot, ws)
+
+    try:
+        while True:
+            msg = await ws.receive_json()
+            await manager.handle_input(room, slot, msg)
+    except WebSocketDisconnect:
+        await manager.leave(room, slot)
+    except Exception:
+        await manager.leave(room, slot)
+
+
 @router.websocket("/ws/combat/practice")
 async def practice(ws: WebSocket):
     await ws.accept()
@@ -282,6 +451,13 @@ async def practice(ws: WebSocket):
     room.wallet = wallet
     room.agent_id = agent_id
     room.solo_game_id = solo_game_id
+    # Training: attach the coach that freezes the fight at each teachable
+    # moment. Nothing is recorded for a tutorial run.
+    if q.get("tutorial") in ("1", "true", "yes"):
+        room.coach = Coach()
+        room.wallet = ""
+        room.agent_id = None
+        room.solo_game_id = None
     await manager.join(room, 0, ws)
 
     try:

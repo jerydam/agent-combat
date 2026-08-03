@@ -48,10 +48,22 @@ export interface StakeInfo {
   payout_wei: string;
 }
 
+export interface OpponentInfo {
+  name: string;
+  /** avatar item id, '' if none equipped */
+  skin: string;
+  level: number;
+}
+
 export type ServerMsg =
   | { kind: 'countdown'; n: number }
   | { kind: 'fight' }
   | { kind: 'error'; message: string }
+  // --- live PvP ---
+  | { kind: 'queued'; private: boolean; code: string | null; waiting: number }
+  | { kind: 'matched'; you: 0 | 1; opponent: OpponentInfo }
+  | { kind: 'no_match'; message: string }
+  | { kind: 'opponent_left'; message: string }
   | StateMsg
   | {
       kind: 'result';
@@ -62,13 +74,24 @@ export type ServerMsg =
       stake?: StakeInfo;
     };
 
-export function combatWsUrl(params: Record<string, string | number>): string {
+function wsBase(): string {
   const api = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
-  const ws = api.replace(/^http/, 'ws');
-  const q = Object.entries(params)
+  return api.replace(/^http/, 'ws');
+}
+
+function qs(params: Record<string, string | number>): string {
+  return Object.entries(params)
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join('&');
-  return `${ws}/ws/combat/practice?${q}`;
+}
+
+export function combatWsUrl(params: Record<string, string | number>): string {
+  return `${wsBase()}/ws/combat/practice?${qs(params)}`;
+}
+
+/** Live player-vs-player. Pass `room` for a private match with a friend. */
+export function pvpWsUrl(params: Record<string, string | number>): string {
+  return `${wsBase()}/ws/combat/pvp?${qs(params)}`;
 }
 
 // ------------------------------------------------------------- settings

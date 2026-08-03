@@ -418,31 +418,42 @@ export function MarketView() {
                 </div>
               )}
 
-              <div className="mt-3 flex gap-2">
+              {/* Button has `whitespace-nowrap`, and a flex item defaults to
+                  min-width:auto — so a long label ("Pick an agent first",
+                  "Apply on-chain", a 4-dp BOT price) refuses to shrink and
+                  punches out of the card. min-w-0 lets them shrink and
+                  truncate instead. */}
+              <div className="mt-3 flex flex-wrap gap-2">
                 {!has && (
                   <>
-                    <Button size="sm" disabled={!!busy || points < item.point_price} onClick={() => redeem(item)} className="flex-1">
+                    <Button size="sm" disabled={!!busy || points < item.point_price} onClick={() => redeem(item)} className="min-w-0 flex-1">
                       {busy === `redeem-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Redeem'}
                     </Button>
-                    <Button size="sm" variant="outline" disabled={!!busy} onClick={() => buyWithBot(item)} className="flex-1">
-                      {busy === `buy-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : `${fmtBot(itemBotWei(item))} BOT`}
+                    <Button size="sm" variant="outline" disabled={!!busy} onClick={() => buyWithBot(item)} className="min-w-0 flex-1">
+                      {busy === `buy-${item.id}`
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <span className="truncate">{fmtBot(itemBotWei(item))} BOT</span>}
                     </Button>
                   </>
                 )}
                 {has && item.kind !== 'boost' && (
                   <Button size="sm" variant="outline"
                     disabled={!!busy || !targetAgent || onTarget}
-                    onClick={() => equip(item)} className="flex-1"
+                    onClick={() => equip(item)} className="min-w-0 flex-1"
                     title={!targetAgent ? 'Pick a target agent above first' : undefined}>
                     {busy === `equip-${item.id}`
                       ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : onTarget ? <><Check className="mr-1 h-3.5 w-3.5" /> Equipped</>
-                        : targetAgent ? `Equip on #${targetAgent}` : 'Pick an agent first'}
+                      : onTarget ? <><Check className="mr-1 h-3.5 w-3.5 shrink-0" /> Equipped</>
+                        : <span className="truncate">
+                            {targetAgent ? `Equip on #${targetAgent}` : 'Pick an agent first'}
+                          </span>}
                   </Button>
                 )}
                 {boostRow && (
-                  <Button size="sm" disabled={!!busy} onClick={() => applyBoost(item)} className="flex-1">
-                    {busy === `apply-${item.id}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Apply on-chain'}
+                  <Button size="sm" disabled={!!busy} onClick={() => applyBoost(item)} className="min-w-0 flex-1">
+                    {busy === `apply-${item.id}`
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <span className="truncate">Apply on-chain</span>}
                   </Button>
                 )}
               </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { parseEther } from 'viem';
 import { useWallet } from '@/lib/wallet';
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Swords, Zap, Loader2 } from 'lucide-react';
+import { Swords, Zap, Loader2, Radio } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ArenaView() {
@@ -129,7 +130,43 @@ export function ArenaView() {
         <h1 className="font-display text-2xl font-bold tracking-wide text-steel sm:text-3xl">ARENA</h1>
           <div className="split-line mt-2 w-32" />
         <p className="mt-1 text-sm text-muted-foreground">
-          1v1 duels — free quick matches, or challenge with a BOT stake. Winner takes the pot.
+          Everything player-vs-player. Fight someone live with your own hands, or send a
+          duel that the engine resolves for you.
+        </p>
+      </div>
+
+      {/* ------------------------------------------------------ live PvP */}
+      <Link href="/pvp"
+        className="block overflow-hidden rounded-2xl border border-primary/50 bg-vs-split p-5 transition-colors hover:border-primary">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 font-display text-[10px] tracking-[0.3em] text-primary">
+              <Radio className="h-3.5 w-3.5" /> LIVE · REAL-TIME
+            </div>
+            <h2 className="mt-1.5 font-display text-xl font-bold text-steel">
+              Fight another player, right now
+            </h2>
+            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+              You and an opponent in the same 90-second fight, tapping your own attacks,
+              blocks, parries and supers. Queue up against anyone, or share a room code to
+              fight a friend directly.
+            </p>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-primary bg-primary/15 px-4 py-2 font-display text-sm tracking-widest text-primary">
+            <Swords className="h-4 w-4" /> PLAY LIVE
+          </span>
+        </div>
+      </Link>
+
+      {/* -------------------------------------------------- simulated duels */}
+      <div className="rounded-xl border border-border bg-card/30 p-3">
+        <div className="font-display text-[10px] tracking-[0.3em] text-muted-foreground">
+          SIMULATED DUELS
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Below is the other kind of PvP: you pick the matchup and the wager, and the
+          deterministic engine resolves it from an on-chain seed — nobody plays it by hand.
+          Good for wagers and for fighting people who are offline.
         </p>
       </div>
 

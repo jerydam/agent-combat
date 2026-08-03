@@ -232,6 +232,11 @@ class CombatMatch:
         self.rng = random.Random(seed)
         self.events: list[dict] = []  # this tick, for broadcasting
         self.log: list[dict] = []  # full trace -> movesHash
+        # Training only: when True the room loop stops advancing time, so
+        # the coach can freeze a teachable moment. Inputs still register —
+        # they're stamped at the frozen timestamp, which is exactly how a
+        # guided parry is made reliable (see combat/coach.py).
+        self.paused: bool = False
 
     # ------------------------------------------------------------- inputs
 
