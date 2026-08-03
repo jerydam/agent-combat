@@ -78,7 +78,10 @@ export function NavShell({ children }: { children: React.ReactNode }) {
   // Game screens are fully immersive: they manage their own chrome and
   // landscape lock (see combat.tsx), so the shell gets entirely out of
   // the way — same on desktop and mobile.
-  const GAME_SCREENS = ['/combat'];
+  // Immersive, landscape, chrome-free. /training/fight is on this list
+  // because it renders the real combat screen — the portrait /training
+  // page itself deliberately is NOT.
+  const GAME_SCREENS = ['/combat', '/training/fight'];
   const isGameScreen = GAME_SCREENS.some((p) => pathname?.startsWith(p));
 
   // Everything that is NOT a game screen is portrait, plain and scrollable.

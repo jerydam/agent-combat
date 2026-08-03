@@ -12,6 +12,21 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 interface Ach {
   id: string; name: string; desc: string; points: number;
   earned: boolean; claimed: boolean;
+  /** progress toward the goal — current is already clamped to target */
+  current: number; target: number; floor: number; unit: string;
+}
+
+/**
+ * Fraction complete, measured from `floor` rather than zero.
+ *
+ * ELO is the reason this exists: it starts at 1000, so a "reach 1100"
+ * goal measured from zero would render as 91% done for someone who has
+ * never fought a single battle.
+ */
+function pctOf(a: Ach): number {
+  const span = a.target - a.floor;
+  if (span <= 0) return a.earned ? 100 : 0;
+  return Math.max(0, Math.min(100, ((a.current - a.floor) / span) * 100));
 }
 
 export function AchievementsView() {
@@ -22,7 +37,9 @@ export function AchievementsView() {
 
   const refresh = useCallback(async () => {
     if (!address) return;
-    const r = await fetch(`${API}/market/achievements/${address}`);
+    // no-store: this is refetched immediately after claiming, and a
+    // replayed cache response would show the pre-claim state
+    const r = await fetch(`${API}/market/achievements/${address}`, { cache: 'no-store' });
     const data = await r.json();
     setPoints(data.points);
     setAchs(data.achievements);
@@ -42,6 +59,11 @@ export function AchievementsView() {
         body: JSON.stringify({ wallet: address, signature }),
       });
       const data = await r.json();
+      if (!r.ok) throw new Error(data?.detail ?? 'Claim failed');
+      // flip the claimed badges immediately, then reconcile
+      const ids: string[] = data.claimed ?? [];
+      setAchs((cur) => cur.map((a) => (ids.includes(a.id) ? { ...a, claimed: true } : a)));
+      setPoints(data.points);
       toast.success(`+${data.points_gained} points claimed!`);
       await refresh();
     } catch (e: any) {
@@ -109,6 +131,37 @@ export function AchievementsView() {
               )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{a.desc}</p>
+
+            {/* progress — shown even once earned, so the card always
+                explains WHY it is (or isn't) unlocked */}
+            {(() => {
+              const pct = pctOf(a);
+              return (
+                <div className="mt-2.5">
+                  <div className="mb-1 flex items-baseline justify-between text-[11px]">
+                    <span className={cn('font-semibold tabular-nums',
+                      a.earned ? 'text-success' : 'text-muted-foreground')}>
+                      {a.current.toLocaleString()} / {a.target.toLocaleString()}
+                      {a.unit ? ` ${a.unit}` : ''}
+                    </span>
+                    <span className={cn('tabular-nums',
+                      a.earned ? 'text-success' : 'text-muted-foreground')}>
+                      {Math.floor(pct)}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className={cn('h-full rounded-full transition-[width] duration-500',
+                        a.claimed ? 'bg-amber-300'
+                          : a.earned ? 'bg-success'
+                            : 'bg-gradient-to-r from-primary/70 to-primary')}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+
             <p className={cn('mt-2 text-xs font-semibold', a.claimed ? 'text-amber-300' : 'text-primary')}>
               {a.claimed ? 'CLAIMED' : `+${a.points} pts`}
             </p>

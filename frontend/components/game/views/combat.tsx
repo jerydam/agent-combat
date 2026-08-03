@@ -18,9 +18,12 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import Link from 'next/link';
-import { Settings, X, Swords, Shield, Star, ChevronUp, Coins, Loader2, Flame, ArrowRight } from 'lucide-react';
+import { Settings, X, Swords, Shield, Star, ChevronUp, Coins, Loader2, Flame, ArrowRight, Check, Dumbbell } from 'lucide-react';
 import { useLandscapeGameMode } from '@/lib/game-mode';
 import { PixelFx, type PixelFxHandle } from '@/components/game/pixel-fx';
+import { LESSONS, TutorialCoach, type Highlight, type TutorialState } from '@/components/game/tutorial';
+import type { FighterSnap } from '@/lib/combat-client';
+import { useRouter } from 'next/navigation';
 
 interface FloatingNum { id: number; slot: 0 | 1; text: string; cls: string }
 
@@ -111,7 +114,13 @@ function FighterSprite({ src, glyph, flip }: { src?: string; glyph: string; flip
   return <span className={cn(flip && 'scale-x-[-1] inline-block')}>{glyph}</span>;
 }
 
-export function CombatView() {
+/**
+ * The arena. `tutorial` runs the exact same fight — same server, same
+ * engine, same controls — with a weak bot and a coaching overlay driven
+ * by the live event stream. Sharing this component is deliberate: a
+ * tutorial built on a mock would teach controls that don't exist.
+ */
+export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
   const { address, connected } = useWallet();
   const [settings, setSettings] = useState<CombatSettings>(loadSettings);
   const [showSettings, setShowSettings] = useState(false);
@@ -133,11 +142,57 @@ export function CombatView() {
   const [stuckGames, setStuckGames] = useState<{ game_id: number; stake_wei: string }[]>([]);
   const [payout, setPayout] = useState<{ ok: boolean; problems: string[]; max_stake_wei: string } | null>(null);
   const [settleState, setSettleState] = useState<'idle' | 'retrying' | 'paid'>('idle');
+
+  // ---- tutorial ----
+  const [tut, setTut] = useState<TutorialState>({ index: 0, progress: 0, done: false });
+  // Lesson checks run inside the event handler, which is memoised — a ref
+  // keeps them reading the CURRENT lesson instead of the one captured
+  // when the handler was built.
+  const tutRef = useRef(tut);
+  tutRef.current = tut;
+
+  const advanceLesson = useCallback(() => {
+    setTut((s) => {
+      const next = s.index + 1;
+      return next >= LESSONS.length
+        ? { index: s.index, progress: 0, done: true }
+        : { index: next, progress: 0, done: false };
+    });
+    // computed inline rather than via `vol`, which is declared further down
+    sfx.count(settings.sfx ? settings.masterVolume : 0);
+  }, [settings.sfx, settings.masterVolume]);
+
+  /** Feed one live event to the current lesson. */
+  const tutorialObserve = useCallback((e: any, me?: FighterSnap) => {
+    const s = tutRef.current;
+    if (s.done) return;
+    const lesson = LESSONS[s.index];
+    if (!lesson || !lesson.match(e, me)) return;
+    setTut((cur) => {
+      if (cur.index !== s.index || cur.done) return cur;
+      const progress = cur.progress + 1;
+      if (progress < lesson.need) return { ...cur, progress };
+      const next = cur.index + 1;
+      return next >= LESSONS.length
+        ? { index: cur.index, progress: 0, done: true }
+        : { index: next, progress: 0, done: false };
+    });
+  }, []);
   const { rotated, containerStyle, activate } = useLandscapeGameMode();
   const wsRef = useRef<WebSocket | null>(null);
   const holdStart = useRef<number>(0);
   const floatId = useRef(0);
   const vol = settings.sfx ? settings.masterVolume : 0;
+
+  /**
+   * Measured from the stage itself, not a media query. In the iOS
+   * fallback the page is CSS-rotated, so the viewport still reports
+   * portrait while the player is looking at a landscape stage — a
+   * `landscape:` breakpoint would be wrong exactly where it matters.
+   * clientHeight of the rotated box is the real usable height.
+   */
+  const [stageBox, setStageBox] = useState({ w: 0, h: 0 });
+  const shortStage = stageBox.h > 0 && stageBox.h < 520;
 
   // ---- pixelverse fx plumbing
   const stageRef = useRef<HTMLDivElement>(null);
@@ -236,8 +291,9 @@ export function CombatView() {
     setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 900);
   }, []);
 
-  const handleEvents = useCallback((events: any[]) => {
+  const handleEvents = useCallback((events: any[], me?: FighterSnap) => {
     for (const e of events) {
+      if (tutorial) tutorialObserve(e, me);
       // `who` is the attacker; the sprite that REACTS is the other one
       const victim = (e.who === 0 ? 1 : 0) as 0 | 1;
       switch (e.kind) {
@@ -311,7 +367,7 @@ export function CombatView() {
           break;
       }
     }
-  }, [vol, settings, addFloat, burstAt, punchImpact]);
+  }, [vol, settings, addFloat, burstAt, punchImpact, tutorial, tutorialObserve]);
 
   const connect = useCallback((gameId?: number) => {
     activate();
@@ -319,11 +375,17 @@ export function CombatView() {
     setResult(null);
     setState(null);
     fxRef.current?.clear();
-    const params: Record<string, string | number> = {
-      personality: 0, power: 72, bot_personality: botPersonality, difficulty,
-    };
-    if (address) params.wallet = address;         // earn points every fight
-    if (agentId !== null) params.agent_id = agentId; // wins/XP hit this agent
+    const params: Record<string, string | number> = tutorial
+      // Training sparring partner: aggressive so it swings often (you
+      // need incoming attacks to practise blocks and parries) but weak,
+      // and NO wallet/agent attached — training must not touch your
+      // record, XP or points.
+      ? { personality: 0, power: 72, bot_personality: 0, difficulty: 40 }
+      : { personality: 0, power: 72, bot_personality: botPersonality, difficulty };
+    if (!tutorial) {
+      if (address) params.wallet = address;         // earn points every fight
+      if (agentId !== null) params.agent_id = agentId; // wins/XP hit this agent
+    }
     if (gameId !== undefined) params.game_id = gameId; // staked: this fight settles it
     const ws = new WebSocket(combatWsUrl(params));
     wsRef.current = ws;
@@ -336,15 +398,45 @@ export function CombatView() {
         // sprites materialise into the arena on the bell
         requestAnimationFrame(() => { burstAt(0, 'spawn'); burstAt(1, 'spawn'); });
       }
-      else if (msg.kind === 'state') { setState(msg); if (msg.events.length) handleEvents(msg.events); }
+      else if (msg.kind === 'state') {
+        setState(msg);
+        if (msg.events.length) handleEvents(msg.events, msg.fighters[0]);
+        // passive lessons (stamina) complete by watching your own state
+        if (tutorial) {
+          const s = tutRef.current;
+          const lesson = LESSONS[s.index];
+          if (!s.done && lesson?.observe?.(msg.fighters[0])) advanceLesson();
+        }
+      }
       else if (msg.kind === 'error') { toast.error(msg.message); setPhase('setup'); }
       else if (msg.kind === 'result') { setResult(msg); setPhase('result'); }
     };
     ws.onerror = () => setPhase('setup');
     ws.onclose = () => { setPhase((p) => (p === 'result' ? p : p === 'fight' || p === 'countdown' || p === 'connecting' ? 'setup' : p)); };
-  }, [botPersonality, difficulty, vol, handleEvents, activate, address, agentId, burstAt]);
+  }, [botPersonality, difficulty, vol, handleEvents, activate, address, agentId, burstAt,
+      tutorial, advanceLesson]);
+
+  // Escape hatch: a lesson with autoAdvanceMs moves on by itself so a
+  // player who can't land a super (or never gasses out) is never trapped.
+  useEffect(() => {
+    if (!tutorial || tut.done || phase !== 'fight') return;
+    const lesson = LESSONS[tut.index];
+    if (!lesson?.autoAdvanceMs) return;
+    const id = setTimeout(advanceLesson, lesson.autoAdvanceMs);
+    return () => clearTimeout(id);
+  }, [tutorial, tut.index, tut.done, phase, advanceLesson]);
 
   useEffect(() => () => wsRef.current?.close(), []);
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const measure = () => setStageBox({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Confetti-equivalent for a win: a fountain of pixels from the bottom
   // corners of the stage as the result card slams in.
@@ -428,8 +520,12 @@ export function CombatView() {
     if (settings.haptics) haptic([15, 25, 40]);
   };
 
+  const router = useRouter();
   const me = state?.fighters[0];
   const bot = state?.fighters[1];
+  // which control the current lesson wants the player to press
+  const highlight: Highlight =
+    tutorial && !tut.done && phase === 'fight' ? LESSONS[tut.index]?.highlight ?? null : null;
   const now = state?.t ?? 0;
   const reason = result?.win_reason ? WIN_REASON_TEXT[result.win_reason] : undefined;
   const iWon = result?.winner === 0;
@@ -653,118 +749,211 @@ export function CombatView() {
 
       {/* setup: pick your fighter, then FIGHT */}
       {phase === 'setup' && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 overflow-y-auto bg-background/92 p-6 text-center backdrop-blur-sm">
-          <h1 className="font-pixel pixel-text text-xl leading-relaxed sm:text-3xl">
-            <span className="text-primary text-glow">äGENT</span>{' '}
-            <span className="text-accent text-glow-accent">çOMBAT</span>
-          </h1>
-          <div className="split-line w-56" />
-          <p className="max-w-md text-sm text-muted-foreground">
-            Tap to strike, hold for a heavy. Defend right before impact for a{' '}
-            <span className="text-success">PARRY</span>. Mashing drains stamina.
-          </p>
-          <p className="max-w-md text-xs text-muted-foreground">
-            Landing hits charges your <span className="text-warning">SUPER</span> meter —
-            when it&apos;s full, a third button appears. The special hits far harder than a
-            heavy, but it winds up slowly: your opponent can block it, and a perfectly
-            timed parry cancels it outright. Your equipped avatar changes hit power,
-            defence, attack speed and how fast the meter charges.
-          </p>
+        // Landscape on a phone leaves ~330px of height. The old layout was
+        // one tall centred column with `justify-center` — which not only
+        // overflowed, it made the top of the content UNREACHABLE, because a
+        // centred flex child that overflows its scroll container clips
+        // above the scroll origin. Hence: scroll on the outer box, `my-auto`
+        // on the inner one (centres when it fits, scrolls cleanly when it
+        // doesn't), and a two-column split once the stage is short.
+        <div className="absolute inset-0 z-30 overflow-y-auto overscroll-contain bg-background/92 backdrop-blur-sm">
+          <div className="flex min-h-full flex-col items-center px-4 py-4">
+            <div className={cn('my-auto w-full text-center', shortStage ? 'max-w-4xl' : 'max-w-md')}>
 
-          {connected && myAgents.length > 0 && (
-            <div className="flex max-w-full flex-wrap items-center justify-center gap-2 text-sm">
-              <span className="text-muted-foreground">Fight as</span>
-              {myAgents.map((a) => (
-                <button key={a.token_id} onClick={() => setAgentId(a.token_id)}
-                  className={cn('flex items-center gap-1.5 rounded-lg border px-3 py-1.5',
-                    agentId === a.token_id ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground')}>
-                  {a.skin && AVATARS[a.skin] && (
-                    <img src={AVATARS[a.skin].src} alt="" className="h-5 w-5 rounded" draggable={false} />
+              <h1 className={cn('font-pixel pixel-text leading-relaxed',
+                shortStage ? 'text-base' : 'text-xl sm:text-3xl')}>
+                {tutorial ? (
+                  <span className="text-primary text-glow">TRAINING</span>
+                ) : (
+                  <>
+                    <span className="text-primary text-glow">äGENT</span>{' '}
+                    <span className="text-accent text-glow-accent">çOMBAT</span>
+                  </>
+                )}
+              </h1>
+              <div className="split-line mx-auto mt-2 w-40" />
+
+              {tutorial ? (
+                // ---------------------------------------------- training
+                <>
+                  <p className={cn('mx-auto mt-3 max-w-lg text-muted-foreground',
+                    shortStage ? 'text-xs' : 'text-sm')}>
+                    A real fight against a weak sparring bot. You&apos;ll be told exactly
+                    which button to press and when — each step only completes once you
+                    actually pull the move off. Nothing here affects your record.
+                  </p>
+
+                  <div className={cn('mx-auto mt-4 grid gap-2 text-left',
+                    shortStage ? 'max-w-3xl grid-cols-2 sm:grid-cols-3' : 'max-w-md grid-cols-1')}>
+                    {LESSONS.map((l, i) => {
+                      const Icon = l.icon;
+                      const passed = i < tut.index || tut.done;
+                      return (
+                        <div key={l.id}
+                          className={cn('flex items-center gap-2 rounded-lg border px-2.5 py-1.5',
+                            passed ? 'border-success/50 bg-success/10 text-success'
+                              : 'border-border text-muted-foreground')}>
+                          {passed ? <Check className="h-3.5 w-3.5 shrink-0" />
+                            : <Icon className="h-3.5 w-3.5 shrink-0" />}
+                          <span className="truncate text-xs font-semibold">{l.title}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                    <Button size={shortStage ? 'default' : 'lg'} onClick={() => { setTut({ index: 0, progress: 0, done: false }); connect(); }}
+                      className="animate-pulse-glow font-display tracking-widest">
+                      <Dumbbell className="mr-2 h-5 w-5" />
+                      {tut.index > 0 || tut.done ? 'TRAIN AGAIN' : 'START TRAINING'}
+                    </Button>
+                    <Button variant="outline" size={shortStage ? 'default' : 'lg'}
+                      onClick={() => router.push('/combat')} className="font-display">
+                      SKIP TO COMBAT
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                // ------------------------------------------------ ranked
+                <>
+                  <p className={cn('mx-auto mt-3 max-w-lg text-muted-foreground',
+                    shortStage ? 'text-xs' : 'text-sm')}>
+                    Tap to strike, hold for a heavy. Defend right before impact for a{' '}
+                    <span className="text-success">PARRY</span>. Landing hits charges your{' '}
+                    <span className="text-warning">SUPER</span>.
+                  </p>
+                  {!shortStage && (
+                    <p className="mx-auto mt-2 max-w-md text-xs text-muted-foreground">
+                      Your equipped avatar changes hit power, defence, attack speed and how
+                      fast the super meter charges.
+                    </p>
                   )}
-                  {a.name}
-                </button>
-              ))}
-            </div>
-          )}
-          {connected && myAgents.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              No minted agent yet — you can still fight and earn points. Mint one to level it up through combat.
-            </p>
-          )}
-          {!connected && (
-            <p className="text-xs text-warning">
-              Wallet not connected — this fight won't earn points or count as a win.
-            </p>
-          )}
+                  <Link href="/training"
+                    className="mt-2 inline-flex items-center gap-1 text-xs text-primary underline-offset-2 hover:underline">
+                    New here? Learn the controls <ArrowRight className="h-3 w-3" />
+                  </Link>
 
-          {/* Money management lives on /rewards — the arena stays a
-              fight screen. Just a one-line pointer when something is
-              actually waiting for them. */}
-          {stuckGames.length > 0 && (
-            <Link href="/rewards"
-              className="flex w-full max-w-md items-center justify-between gap-3 rounded-xl border border-warning/50 bg-warning/10 px-4 py-2.5 text-left">
-              <span className="text-xs font-semibold text-warning">
-                {stuckGames.length} stake{stuckGames.length > 1 ? 's' : ''} waiting to be recovered
-              </span>
-              <span className="flex items-center gap-1 font-display text-xs text-warning">
-                REWARDS <ArrowRight className="h-3.5 w-3.5" />
-              </span>
-            </Link>
-          )}
+                  {/* two columns once the stage is short, one when tall */}
+                  <div className={cn('mt-4 grid gap-4 text-left',
+                    shortStage ? 'grid-cols-2' : 'grid-cols-1')}>
 
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground">Opponent</span>
-            {[0, 1, 2].map((p) => (
-              <button key={p} onClick={() => setBotPersonality(p)}
-                className={cn('rounded-lg border px-3 py-1.5', botPersonality === p ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted-foreground')}>
-                {PERSONALITY_NAMES[p as 0 | 1 | 2]}
-              </button>
-            ))}
-          </div>
-          <div className="flex w-64 items-center gap-3 text-sm">
-            <span className="text-muted-foreground">Difficulty</span>
-            <Slider value={[difficulty]} min={40} max={90} step={5} onValueChange={([v]) => setDifficulty(v)} />
-            <span className="w-8 tabular-nums">{difficulty}</span>
-          </div>
-          {/* Never let someone stake into an arena that can't pay them. */}
-          {connected && payout && !payout.ok && (
-            <div className="w-full max-w-md rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-left">
-              <p className="font-display text-xs font-bold text-destructive">
-                STAKING IS OFFLINE — free play only
-              </p>
-              <ul className="mt-1.5 list-inside list-disc text-xs text-muted-foreground">
-                {payout.problems.map((p) => <li key={p}>{p}</li>)}
-              </ul>
-            </div>
-          )}
+                    {/* ---- column A: who you are ---- */}
+                    <div className="space-y-3">
+                      {connected && myAgents.length > 0 && (
+                        <div>
+                          <div className="mb-1.5 font-display text-[10px] tracking-widest text-muted-foreground">
+                            FIGHT AS
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {myAgents.map((a) => (
+                              <button key={a.token_id} onClick={() => setAgentId(a.token_id)}
+                                className={cn('flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs',
+                                  agentId === a.token_id ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground')}>
+                                {a.skin && AVATARS[a.skin] && (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={AVATARS[a.skin].src} alt="" className="h-4 w-4 rounded" draggable={false} />
+                                )}
+                                {a.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {connected && myAgents.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          No minted agent yet — you can still fight and earn points.
+                        </p>
+                      )}
+                      {!connected && (
+                        <p className="text-xs text-warning">
+                          Wallet not connected — this fight won&apos;t earn points or count as a win.
+                        </p>
+                      )}
 
-          {connected && agentId !== null && (
-            <div className="flex items-center gap-2 text-sm">
-              <Coins className="h-4 w-4 text-warning" />
-              <span className="text-muted-foreground">Stake</span>
-              <input
-                value={stake}
-                readOnly={rotated}
-                onFocus={(e) => { if (rotated) { e.target.blur(); setShowKeypad(true); } }}
-                onClick={() => { if (rotated) setShowKeypad(true); }}
-                onChange={(e) => setStake(e.target.value.replace(/[^0-9.]/g, ''))}
-                placeholder="0 = free"
-                inputMode="decimal"
-                className="w-24 rounded-lg border border-border bg-input px-2.5 py-1.5 text-right tabular-nums outline-none focus:border-warning"
-              />
-              <span className="text-muted-foreground">BOT · win pays <span className="text-warning">1.8×</span></span>
+                      {stuckGames.length > 0 && (
+                        <Link href="/rewards"
+                          className="flex items-center justify-between gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2">
+                          <span className="text-[11px] font-semibold text-warning">
+                            {stuckGames.length} stake{stuckGames.length > 1 ? 's' : ''} to recover
+                          </span>
+                          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-warning" />
+                        </Link>
+                      )}
+                    </div>
+
+                    {/* ---- column B: the matchup + wager ---- */}
+                    <div className="space-y-3">
+                      <div>
+                        <div className="mb-1.5 font-display text-[10px] tracking-widest text-muted-foreground">
+                          OPPONENT
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[0, 1, 2].map((p) => (
+                            <button key={p} onClick={() => setBotPersonality(p)}
+                              className={cn('rounded-lg border px-2.5 py-1 text-xs',
+                                botPersonality === p ? 'border-accent bg-accent/10 text-accent' : 'border-border text-muted-foreground')}>
+                              {PERSONALITY_NAMES[p as 0 | 1 | 2]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 text-xs">
+                        <span className="shrink-0 text-muted-foreground">Difficulty</span>
+                        <Slider value={[difficulty]} min={40} max={90} step={5}
+                          onValueChange={([v]) => setDifficulty(v)} className="min-w-0 flex-1" />
+                        <span className="w-6 shrink-0 tabular-nums">{difficulty}</span>
+                      </div>
+
+                      {connected && agentId !== null && (
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <Coins className="h-3.5 w-3.5 shrink-0 text-warning" />
+                          <span className="text-muted-foreground">Stake</span>
+                          <input
+                            value={stake}
+                            readOnly={rotated}
+                            onFocus={(e) => { if (rotated) { e.target.blur(); setShowKeypad(true); } }}
+                            onClick={() => { if (rotated) setShowKeypad(true); }}
+                            onChange={(e) => setStake(e.target.value.replace(/[^0-9.]/g, ''))}
+                            placeholder="0 = free"
+                            inputMode="decimal"
+                            className="w-20 rounded-lg border border-border bg-input px-2 py-1 text-right tabular-nums outline-none focus:border-warning"
+                          />
+                          <span className="text-muted-foreground">
+                            BOT · pays <span className="text-warning">1.8×</span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Never let someone stake into an arena that can't pay them. */}
+                  {connected && payout && !payout.ok && (
+                    <div className="mt-3 rounded-lg border border-destructive/50 bg-destructive/10 p-2.5 text-left">
+                      <p className="font-display text-[11px] font-bold text-destructive">
+                        STAKING IS OFFLINE — free play only
+                      </p>
+                      <ul className="mt-1 list-inside list-disc text-[11px] text-muted-foreground">
+                        {payout.problems.map((p) => <li key={p}>{p}</li>)}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                    <Button size={shortStage ? 'default' : 'lg'} onClick={startFight} disabled={staking}
+                      className="animate-pulse-glow font-display tracking-widest">
+                      {staking
+                        ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> STAKING…</>
+                        : <><Swords className="mr-2 h-5 w-5" /> {stake.trim() !== '' && Number(stake) > 0 ? `FIGHT · ${stake} BOT` : 'FIGHT'}</>}
+                    </Button>
+                    <Button variant="outline" size={shortStage ? 'default' : 'lg'}
+                      onClick={() => setShowSettings(true)} className="font-display">
+                      <Settings className="mr-2 h-4 w-4" /> SETTINGS
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
-          )}
-          <div className="flex items-center gap-3">
-            <Button size="lg" onClick={startFight} disabled={staking}
-              className="animate-pulse-glow font-display text-lg tracking-widest">
-              {staking
-                ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> STAKING…</>
-                : <><Swords className="mr-2 h-5 w-5" /> {stake.trim() !== '' && Number(stake) > 0 ? `FIGHT · ${stake} BOT` : 'FIGHT'}</>}
-            </Button>
-            <Button variant="outline" size="lg" onClick={() => setShowSettings(true)} className="font-display">
-              <Settings className="mr-2 h-4 w-4" /> SETTINGS
-            </Button>
           </div>
         </div>
       )}
@@ -853,18 +1042,33 @@ export function CombatView() {
           {!result.reward && (
             <p className="text-xs text-muted-foreground">Connect your wallet before fighting to earn points and record wins.</p>
           )}
-          <Button size="lg" onClick={() => connect()} className="font-display tracking-widest">
-            REMATCH{result.stake ? ' · FREE' : ''}
-          </Button>
-          <Button variant="ghost" onClick={() => setPhase('setup')}>Change opponent</Button>
+          {tutorial ? (
+            <>
+              {/* Lesson progress survives the bell — a KO mid-curriculum
+                  shouldn't cost the player everything they've learned. */}
+              <Button size="lg" onClick={() => connect()} className="font-display tracking-widest">
+                {tut.done ? 'FIGHT AGAIN' : 'CONTINUE TRAINING'}
+              </Button>
+              <Button variant="ghost" onClick={() => router.push('/combat')}>
+                Go to ranked combat
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button size="lg" onClick={() => connect()} className="font-display tracking-widest">
+                REMATCH{result.stake ? ' · FREE' : ''}
+              </Button>
+              <Button variant="ghost" onClick={() => setPhase('setup')}>Change opponent</Button>
+            </>
+          )}
         </div>
       )}
 
       {/* the two buttons */}
       {phase === 'fight' && (
         <>
-          {[{ label: 'DEF', icon: Shield, side: settings.swapButtons ? 'right' : 'left', onDown: defend, onUp: undefined, edge: 'hsl(var(--primary))', cls: 'text-primary active:bg-primary/25' },
-            { label: 'ATK', icon: Swords, side: settings.swapButtons ? 'left' : 'right', onDown: attackDown, onUp: attackUp, edge: 'hsl(var(--accent))', cls: 'text-accent active:bg-accent/25' }].map((b) => (
+          {[{ label: 'DEF', icon: Shield, side: settings.swapButtons ? 'right' : 'left', onDown: defend, onUp: undefined, edge: 'hsl(var(--primary))', cls: 'text-primary active:bg-primary/25', lit: highlight === 'def' },
+            { label: 'ATK', icon: Swords, side: settings.swapButtons ? 'left' : 'right', onDown: attackDown, onUp: attackUp, edge: 'hsl(var(--accent))', cls: 'text-accent active:bg-accent/25', lit: highlight === 'atk' || highlight === 'atk-hold' }].map((b) => (
             <button
               key={b.label}
               onPointerDown={(e) => { e.preventDefault(); b.onDown(); }}
@@ -872,6 +1076,8 @@ export function CombatView() {
               className={cn(
                 'pixel-frame absolute z-20 flex flex-col items-center justify-center gap-1 bg-card/40 backdrop-blur-sm active:translate-y-[3px]',
                 b.cls,
+                // the tutorial points at the exact button it's talking about
+                b.lit && 'animate-pulse-glow ring-4 ring-warning',
               )}
               style={{
                 [b.side]: 28,
@@ -883,6 +1089,11 @@ export function CombatView() {
             >
               <b.icon className="h-7 w-7" />
               <span className="font-pixel pixel-text text-[8px]">{b.label}</span>
+              {b.lit && highlight === 'atk-hold' && b.label === 'ATK' && (
+                <span className="absolute -top-6 whitespace-nowrap font-pixel pixel-text text-[8px] text-warning">
+                  HOLD
+                </span>
+              )}
             </button>
           ))}
 
@@ -891,7 +1102,10 @@ export function CombatView() {
           {me?.super_ready && (
             <button
               onPointerDown={(e) => { e.preventDefault(); unleashSuper(); }}
-              className="pixel-frame absolute left-1/2 z-20 flex -translate-x-1/2 flex-col items-center justify-center gap-0.5 bg-warning/25 px-5 py-2 text-warning active:translate-y-[3px] active:bg-warning/40"
+              className={cn(
+                'pixel-frame absolute left-1/2 z-20 flex -translate-x-1/2 flex-col items-center justify-center gap-0.5 bg-warning/25 px-5 py-2 text-warning active:translate-y-[3px] active:bg-warning/40',
+                highlight === 'super' && 'animate-pulse-glow ring-4 ring-warning',
+              )}
               style={{
                 bottom: `calc(${settings.buttonRaise}px + env(safe-area-inset-bottom))`,
                 opacity: settings.buttonOpacity,
@@ -903,6 +1117,15 @@ export function CombatView() {
             </button>
           )}
         </>
+      )}
+
+      {/* coaching overlay — only during training, only while fighting */}
+      {tutorial && (phase === 'fight' || tut.done) && (
+        <TutorialCoach
+          state={tut}
+          onSkip={advanceLesson}
+          onFinish={() => { wsRef.current?.close(); router.push('/combat'); }}
+        />
       )}
 
       {showKeypad && (

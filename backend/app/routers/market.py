@@ -34,6 +34,7 @@ from ..market.catalog import (
     avatar_power_rating,
     bot_price_wei,
     evaluate,
+    evaluate_progress,
     usd_price,
 )
 from ..models import AgentCache, AgentLoadout, InventoryItem, PlayerProgress
@@ -67,7 +68,7 @@ async def _progress(db: AsyncSession, wallet: str) -> PlayerProgress:
 
 @router.get("/achievements/{wallet}")
 async def achievements(wallet: str, db: AsyncSession = Depends(get_db)):
-    earned = await evaluate(db, wallet)
+    progress = await evaluate_progress(db, wallet)
     p = await _progress(db, wallet)
     await db.commit()
     return {
@@ -78,8 +79,13 @@ async def achievements(wallet: str, db: AsyncSession = Depends(get_db)):
                 "name": a.name,
                 "desc": a.desc,
                 "points": a.points,
-                "earned": a.id in earned,
+                "earned": progress.get(a.id, 0) >= a.target,
                 "claimed": a.id in p.claimed,
+                # progress payload for the bar
+                "current": min(progress.get(a.id, 0), a.target),
+                "target": a.target,
+                "floor": a.floor,
+                "unit": a.unit,
             }
             for a in ACHIEVEMENTS
         ],
@@ -195,6 +201,10 @@ class EquipBody(BaseModel):
     token_id: int
     item_id: str  # skin or power; empty string = unequip
     signature: str  # over "agent-arena:market:equip:{token_id}:{item_id}"
+    # Which slot an empty item_id clears. Defaults to "skin" purely for
+    # backwards compatibility with the original call shape — without this
+    # there was no way to take a power OFF an agent at all.
+    slot: str = "skin"
 
 
 @router.post("/equip")
@@ -207,8 +217,11 @@ async def equip(body: EquipBody, db: AsyncSession = Depends(get_db)):
     loadout = await db.get(AgentLoadout, body.token_id) or AgentLoadout(
         token_id=body.token_id
     )
+    moved_from: list[int] = []
     if body.item_id == "":
-        loadout.skin = ""
+        if body.slot not in ("skin", "power"):
+            raise HTTPException(400, "slot must be 'skin' or 'power'")
+        setattr(loadout, body.slot, "")
     else:
         item = ITEM_BY_ID.get(body.item_id)
         if item is None or item.kind not in ("skin", "power"):
@@ -223,13 +236,57 @@ async def equip(body: EquipBody, db: AsyncSession = Depends(get_db)):
         ).scalar_one_or_none()
         if not owned:
             raise HTTPException(400, "You don't own this item")
-        if item.kind == "skin":
-            loadout.skin = item.id
-        else:
-            loadout.power = item.id
+
+        # ONE COPY, ONE AGENT.
+        #
+        # Avatars grant real combat stats now, so letting a single
+        # purchased skin sit on every agent in a roster would mean buying
+        # one Legendary and buffing the whole stable — the item would be
+        # priced for one fighter and used by five. Equipping moves the
+        # item: any other agent of this wallet wearing it is stripped
+        # first, and the response says which, so the UI can explain it.
+        slot = "skin" if item.kind == "skin" else "power"
+        moved_from = await _release_item(db, body.wallet, item.id, slot, body.token_id)
+
+        setattr(loadout, slot, item.id)
+
     db.add(loadout)
     await db.commit()
-    return {"ok": True, "skin": loadout.skin, "power": loadout.power}
+    return {
+        "ok": True,
+        "skin": loadout.skin,
+        "power": loadout.power,
+        "moved_from": moved_from if body.item_id else [],
+    }
+
+
+async def _release_item(
+    db: AsyncSession, wallet: str, item_id: str, slot: str, keep_token_id: int
+) -> list[int]:
+    """Unequip `item_id` from every OTHER agent this wallet owns.
+
+    Returns the token ids it was taken off, so the caller can tell the
+    player where their avatar went instead of it silently vanishing from
+    another agent.
+    """
+    rows = (
+        await db.execute(
+            select(AgentLoadout, AgentCache)
+            .join(AgentCache, AgentCache.token_id == AgentLoadout.token_id)
+            .where(
+                AgentCache.owner == wallet.lower(),
+                AgentLoadout.token_id != keep_token_id,
+                getattr(AgentLoadout, slot) == item_id,
+            )
+        )
+    ).all()
+
+    moved: list[int] = []
+    for loadout, _agent in rows:
+        setattr(loadout, slot, "")
+        db.add(loadout)
+        moved.append(loadout.token_id)
+    return moved
 
 
 @router.get("/loadout/{token_id}")

@@ -18,7 +18,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import (AgentCache, Battle, CombatMatchRecord, Fixture,
-                      SoloGame)
+                      LeagueRecord, SoloGame)
 
 
 # ------------------------------------------------------------ achievements
@@ -29,41 +29,50 @@ class AchievementDef:
     name: str
     desc: str
     points: int
+    # Progress model: earned once `current >= target`. `floor` is where
+    # the bar starts filling — ELO begins at 1000, so without it "reach
+    # 1100" would render as 91% complete for a player who has never
+    # fought.
+    target: int = 1
+    floor: int = 0
+    #: how the current value reads in the UI, e.g. "3 / 10 wins"
+    unit: str = ""
 
 
 ACHIEVEMENTS: list[AchievementDef] = [
-    AchievementDef("first_agent", "Genesis", "Mint your first agent", 50),
-    AchievementDef("full_roster", "Full Squad", "Own 5 agents", 150),
-    AchievementDef("first_win", "First Blood", "Win your first battle", 50),
-    AchievementDef("win_10", "Contender", "Win 10 battles", 100),
-    AchievementDef("win_25", "Veteran", "Win 25 battles (Tier 2 evolution)", 200),
-    AchievementDef("win_60", "Elite", "Win 60 battles (Tier 3 evolution)", 400),
-    AchievementDef("level_5", "Grinder", "Reach level 5 on any agent", 100),
-    AchievementDef("elo_1100", "Climber", "Reach 1100 ELO", 100),
-    AchievementDef("elo_1300", "Apex", "Reach 1300 ELO", 300),
-    AchievementDef("bot_slayer", "Bot Slayer", "Beat a house bot", 50),
-    AchievementDef("bot_slayer_10", "House Breaker", "Beat house bots 10 times", 150),
-    AchievementDef("league_player", "Leaguer", "Play 5 league fixtures", 100),
-    AchievementDef("league_podium", "Podium", "Finish top 3 in a league", 250),
-    AchievementDef("staked_win", "High Roller", "Win a staked duel", 150),
+    AchievementDef("first_agent", "Genesis", "Mint your first agent", 50, 1, unit="agents"),
+    AchievementDef("full_roster", "Full Squad", "Own 5 agents", 150, 5, unit="agents"),
+    AchievementDef("first_win", "First Blood", "Win your first battle", 50, 1, unit="wins"),
+    AchievementDef("win_10", "Contender", "Win 10 battles", 100, 10, unit="wins"),
+    AchievementDef("win_25", "Veteran", "Win 25 battles (Tier 2 evolution)", 200, 25, unit="wins"),
+    AchievementDef("win_60", "Elite", "Win 60 battles (Tier 3 evolution)", 400, 60, unit="wins"),
+    AchievementDef("level_5", "Grinder", "Reach level 5 on any agent", 100, 5, 1, unit="level"),
+    AchievementDef("elo_1100", "Climber", "Reach 1100 ELO", 100, 1100, 1000, unit="ELO"),
+    AchievementDef("elo_1300", "Apex", "Reach 1300 ELO", 300, 1300, 1000, unit="ELO"),
+    AchievementDef("bot_slayer", "Bot Slayer", "Beat a house bot", 50, 1, unit="wins"),
+    AchievementDef("bot_slayer_10", "House Breaker", "Beat house bots 10 times", 150, 10, unit="wins"),
+    AchievementDef("league_player", "Leaguer", "Play 5 league fixtures", 100, 5, unit="fixtures"),
+    AchievementDef("league_podium", "Podium", "Finish top 3 in a league", 250, 1, unit="podiums"),
+    AchievementDef("staked_win", "High Roller", "Win a staked duel", 150, 1, unit="wins"),
 ]
 
 ACHIEVEMENT_BY_ID = {a.id: a for a in ACHIEVEMENTS}
 
 
-async def evaluate(db: AsyncSession, wallet: str) -> set[str]:
-    """Return the ids of every achievement this wallet currently satisfies."""
+async def evaluate_progress(db: AsyncSession, wallet: str) -> dict[str, int]:
+    """Current value of every achievement's tracked metric for this wallet.
+
+    Returns raw progress (3 wins, 1240 ELO, …) rather than a yes/no, so
+    the UI can show how far along the player is instead of a binary
+    locked/unlocked. `evaluate()` derives the earned set from this.
+    """
     wallet = wallet.lower()
-    earned: set[str] = set()
 
     agents = (
         (await db.execute(select(AgentCache).where(AgentCache.owner == wallet)))
         .scalars().all()
     )
-    if agents:
-        earned.add("first_agent")
-    if len(agents) >= 5:
-        earned.add("full_roster")
+    ids = [a.token_id for a in agents]
 
     combat_wins = (
         await db.execute(
@@ -75,22 +84,11 @@ async def evaluate(db: AsyncSession, wallet: str) -> set[str]:
         )
     ).scalar() or 0
     total_wins = sum(a.wins for a in agents) + combat_wins
-    if total_wins >= 1:
-        earned.add("first_win")
-    if total_wins >= 10:
-        earned.add("win_10")
-    if total_wins >= 25:
-        earned.add("win_25")
-    if total_wins >= 60:
-        earned.add("win_60")
-    if any(a.level >= 5 for a in agents):
-        earned.add("level_5")
-    if any(a.ranking_points >= 1100 for a in agents):
-        earned.add("elo_1100")
-    if any(a.ranking_points >= 1300 for a in agents):
-        earned.add("elo_1300")
 
-    ids = [a.token_id for a in agents]
+    solo_wins = 0
+    played = 0
+    won_duels = 0
+    podiums = 0
     if ids:
         solo_wins = (
             await db.execute(
@@ -101,16 +99,11 @@ async def evaluate(db: AsyncSession, wallet: str) -> set[str]:
                 )
             )
         ).scalar() or 0
-        if solo_wins + combat_wins >= 1:
-            earned.add("bot_slayer")
-        if solo_wins + combat_wins >= 10:
-            earned.add("bot_slayer_10")
-    else:
-        if combat_wins >= 1:
-            earned.add("bot_slayer")
-        if combat_wins >= 10:
-            earned.add("bot_slayer_10")
 
+        # NOTE: these three used to sit in the `else` branch of `if ids:`,
+        # i.e. they only ran for wallets owning NO agents — and then
+        # queried `.in_([])`. That made Leaguer and High Roller literally
+        # unobtainable for every player who could actually earn them.
         played = (
             await db.execute(
                 select(func.count()).select_from(Fixture).where(
@@ -118,12 +111,8 @@ async def evaluate(db: AsyncSession, wallet: str) -> set[str]:
                 )
             )
         ).scalar() or 0
-        if played >= 5:
-            earned.add("league_player")
 
-        # staked duel win: any resolved battle won by our agent with stake — we
-        # don't mirror stake in Battle, so approximate via battles won (kept
-        # conservative: requires the battles table which only real duels hit)
+        # staked duel win: any resolved battle won by one of our agents
         won_duels = (
             await db.execute(
                 select(func.count()).select_from(Battle).where(
@@ -131,10 +120,50 @@ async def evaluate(db: AsyncSession, wallet: str) -> set[str]:
                 )
             )
         ).scalar() or 0
-        if won_duels >= 1:
-            earned.add("staked_win")
 
-    return earned
+        # Podium was listed in ACHIEVEMENTS but never computed anywhere,
+        # so it could never be earned. Count resolved leagues where one of
+        # our agents placed top 3.
+        leagues = (
+            await db.execute(
+                select(LeagueRecord).where(LeagueRecord.status == "resolved")
+            )
+        ).scalars().all()
+        mine = set(ids)
+        for lg in leagues:
+            top3 = [row.get("agent") for row in (lg.standings or [])[:3]]
+            if mine.intersection(t for t in top3 if t is not None):
+                podiums += 1
+
+    bot_wins = solo_wins + combat_wins
+    best_level = max((a.level for a in agents), default=0)
+    best_elo = max((a.ranking_points for a in agents), default=0)
+
+    return {
+        "first_agent": len(agents),
+        "full_roster": len(agents),
+        "first_win": total_wins,
+        "win_10": total_wins,
+        "win_25": total_wins,
+        "win_60": total_wins,
+        "level_5": best_level,
+        "elo_1100": best_elo,
+        "elo_1300": best_elo,
+        "bot_slayer": bot_wins,
+        "bot_slayer_10": bot_wins,
+        "league_player": played,
+        "league_podium": podiums,
+        "staked_win": won_duels,
+    }
+
+
+async def evaluate(db: AsyncSession, wallet: str) -> set[str]:
+    """Return the ids of every achievement this wallet currently satisfies."""
+    progress = await evaluate_progress(db, wallet)
+    return {
+        a.id for a in ACHIEVEMENTS
+        if progress.get(a.id, 0) >= a.target
+    }
 
 
 # ----------------------------------------------------------------- market

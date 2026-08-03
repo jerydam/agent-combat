@@ -224,12 +224,26 @@ export function MarketView() {
         body: JSON.stringify({ wallet: address, token_id: Number(targetAgent), item_id: item.id, signature }),
       });
       if (!r.ok) throw new Error((await r.json()).detail);
-      // Update the agent's loadout locally so the EQUIPPED badge moves
-      // the instant the server says yes.
+      const res = await r.json();
+      // One copy = one agent, so the server may have taken this item off
+      // another agent. Mirror that locally: clear it everywhere, then set
+      // it on the target, so the EQUIPPED badge moves instantly and no
+      // stale badge is left behind on the agent it came from.
       const slot = item.kind === 'skin' ? 'skin' : 'power';
-      setMyAgents((cur) => cur.map((a) =>
-        a.token_id === Number(targetAgent) ? { ...a, [slot]: item.id } : a));
-      toast.success(`${item.name} equipped on agent #${targetAgent}`);
+      setMyAgents((cur) => cur.map((a) => ({
+        ...a,
+        [slot]: a.token_id === Number(targetAgent)
+          ? item.id
+          : a[slot] === item.id ? '' : a[slot],
+      })));
+      const movedFrom: number[] = res?.moved_from ?? [];
+      if (movedFrom.length) {
+        toast.success(`${item.name} moved to agent #${targetAgent}`, {
+          description: `Taken off ${movedFrom.map((t) => `#${t}`).join(', ')} — one copy can only be worn by one agent.`,
+        });
+      } else {
+        toast.success(`${item.name} equipped on agent #${targetAgent}`);
+      }
       await refresh();
     } catch (e: any) {
       toast.error(e?.message ?? 'Equip failed');
@@ -353,6 +367,11 @@ export function MarketView() {
                       <span className="flex items-center gap-0.5 rounded-full bg-success/15 px-1.5 py-0.5 text-[10px] font-bold text-success">
                         <Check className="h-3 w-3" />
                         EQUIPPED · {equipped.map((a) => `#${a.token_id}`).join(' ')}
+                      </span>
+                    )}
+                    {item.kind !== 'boost' && has && equipped.length > 0 && !onTarget && targetAgent && (
+                      <span className="rounded-full border border-warning/50 px-1.5 py-0.5 text-[10px] font-bold text-warning">
+                        MOVES ON EQUIP
                       </span>
                     )}
                   </div>
