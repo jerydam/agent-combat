@@ -63,20 +63,62 @@ def _elo(winner_pts: int, loser_pts: int) -> tuple[int, int]:
     return winner_pts + delta, loser_pts - delta
 
 
-def _send_tx(w3: Web3, fn) -> str:
+class TxFailed(RuntimeError):
+    """A submitted transaction reverted or never confirmed."""
+
+
+def _send_tx(w3: Web3, fn, *, wait: bool = True, timeout: int = 90) -> str:
+    """Sign, broadcast and (by default) WAIT for the receipt.
+
+    Waiting is not optional bookkeeping — it is the difference between
+    "the player was paid" and "we told the player they were paid". A
+    broadcast tx can still run out of gas, revert on a state change, or
+    never be mined; without the receipt every one of those looks
+    identical to success, so the DB gets marked resolved and the payout
+    silently never happens.
+    """
     s = get_settings()
+    if not s.game_server_private_key:
+        raise TxFailed("GAME_SERVER_PRIVATE_KEY is not set — cannot submit results")
+
     acct = Account.from_key(s.game_server_private_key)
+
+    # Fail loudly and specifically on an unfunded signer. Otherwise this
+    # surfaces as an opaque "insufficient funds for gas * price + value"
+    # from deep inside web3, or worse, as a silent no-op.
+    balance = w3.eth.get_balance(acct.address)
+    if balance == 0:
+        raise TxFailed(
+            f"game-server account {acct.address} has ZERO balance on chain "
+            f"{w3.eth.chain_id} — it cannot pay gas, so no result can ever be "
+            f"submitted and no staked win can ever pay out. Fund this address."
+        )
+
     tx = fn.build_transaction(
         {
             "from": acct.address,
-            "nonce": w3.eth.get_transaction_count(acct.address),
+            # "pending", not the default "latest": two fights finishing in
+            # the same block would otherwise build on the same nonce and
+            # the second tx is rejected as a duplicate/underpriced replacement.
+            "nonce": w3.eth.get_transaction_count(acct.address, "pending"),
             # read from the node, not env — a CHAIN_ID typo must not brick
             # every submitResult with an invalid-chain-id revert
             "chainId": w3.eth.chain_id,
         }
     )
     signed = acct.sign_transaction(tx)
-    return w3.eth.send_raw_transaction(signed.raw_transaction).hex()
+    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+    hex_hash = tx_hash.hex()
+    if not hex_hash.startswith("0x"):
+        hex_hash = "0x" + hex_hash
+
+    if not wait:
+        return hex_hash
+
+    receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=timeout)
+    if receipt.get("status") != 1:
+        raise TxFailed(f"tx {hex_hash} reverted on chain (status 0)")
+    return hex_hash
 
 
 async def _sync_agent_record(db, token_id: int, won: bool, log_: dict, opp_pts: int):
@@ -207,24 +249,105 @@ async def index_solo(event) -> None:
     log.info("Solo game %s indexed (pending live combat)", game_id)
 
 
-SOLO_PENDING_TTL_S = 15 * 60  # abandoned staked games settle after this
+SOLO_PENDING_TTL_S = 15 * 60  # abandoned staked games are only WARNED about
+
+# On-chain SoloArena.Status
+_ST_NONE, _ST_PENDING, _ST_RESOLVED, _ST_RECLAIMED = 0, 1, 2, 3
+
+
+async def retry_unsettled_solo(w3, solo) -> None:
+    """Re-submit staked games whose live fight produced a result but whose
+    on-chain submitResult did not land.
+
+    This is the missing half of the payout path. A fight can finish
+    perfectly — the player watched themselves win — and the settlement tx
+    can still fail for reasons that have nothing to do with the game: the
+    signer was out of gas, the RPC blipped, the node dropped the tx. Left
+    alone, that player's win silently becomes a 1-hour wait for a manual
+    reclaim of their own stake, and they never see the 1.8x they earned.
+
+    So the result is persisted as `unsettled` the moment the fight ends
+    and retried here until the chain confirms it.
+    """
+    from sqlalchemy import select
+
+    if solo is None:
+        return
+
+    async with SessionLocal() as db:
+        rows = (
+            await db.execute(
+                select(SoloGame).where(SoloGame.status == "unsettled")
+            )
+        ).scalars().all()
+        todo = [(g.game_id, g.player_won, g.moves, g.moves_hash) for g in rows]
+
+    for game_id, won, moves, m_hash_hex in todo:
+        # The chain is the source of truth. Our tx may have landed even
+        # though we never saw the receipt — resubmitting then would just
+        # revert GameNotPending and look like a new failure.
+        try:
+            onchain = solo.functions.getGame(game_id).call()
+            status = onchain[4]
+        except Exception:
+            log.exception("solo %s: getGame failed, will retry next tick", game_id)
+            continue
+
+        if status == _ST_RESOLVED:
+            async with SessionLocal() as db:
+                g = await db.get(SoloGame, game_id)
+                if g:
+                    g.status = "resolved"
+                    g.player_won = bool(onchain[5])
+                    await db.commit()
+            log.info("solo %s was already resolved on-chain — DB reconciled", game_id)
+            continue
+
+        if status == _ST_RECLAIMED:
+            async with SessionLocal() as db:
+                g = await db.get(SoloGame, game_id)
+                if g:
+                    g.status = "reclaimed"
+                    await db.commit()
+            log.warning(
+                "solo %s: player reclaimed their stake before we could settle "
+                "— their win was never paid out", game_id,
+            )
+            continue
+
+        if status != _ST_PENDING:
+            continue
+
+        try:
+            m_hash = bytes.fromhex(m_hash_hex[2:] if m_hash_hex.startswith("0x") else m_hash_hex) \
+                if m_hash_hex else moves_hash(moves or {})
+            tx_hash = _send_tx(
+                w3, solo.functions.submitResult(game_id, bool(won), m_hash)
+            )
+        except Exception as e:
+            log.error("solo %s: settlement retry failed (%s)", game_id, e)
+            continue
+
+        async with SessionLocal() as db:
+            g = await db.get(SoloGame, game_id)
+            if g:
+                g.status = "resolved"
+                g.tx_hash = tx_hash
+                await db.commit()
+        log.info("solo %s settled on retry (won=%s, tx %s)", game_id, won, tx_hash)
 
 
 async def sweep_stale_solo(w3, nft, solo) -> None:
-    """Auto-resolve pending solo games older than the TTL via simulation
-    (the pre-live-combat behavior) so escrowed stakes always pay out.
+    """Passive monitor for games that never got a live result at all.
 
-    NOTE: retired as of the live-combat redesign. bot_id is now a pure
-    escrow reference (the frontend passes whatever house-bot id happens
-    to be registered, often 0) — it is NOT a real minted agent, so
-    nft.getAgent(bot_id) reverts every single time this runs, which is
-    exactly the crash loop this was producing. The SoloArena contract's
-    reclaim() now lets the PLAYER pull their own stake back after
-    RECLAIM_AFTER (1h) with no backend involvement, which is the correct
-    fix for a fight that never got a live result — not a fabricated
-    replay against a bot that may not even exist. This function is kept
-    as a passive monitor (logs stale games so you can see if the live
-    settlement path is failing) and does NOT touch the chain.
+    Deliberately does NOT touch the chain: bot_id is a pure escrow
+    reference, not a real minted agent, so the old "resolve it by
+    simulating a replay" behaviour called nft.getAgent(bot_id) on an
+    id that usually doesn't exist and crash-looped. A fight nobody
+    played should not be settled by a fabricated replay — the contract's
+    reclaim() lets the player take their own stake back after 1h, which
+    is the correct outcome. Games that DID get played but failed to
+    submit are handled by retry_unsettled_solo() instead.
     """
     from sqlalchemy import select
 
@@ -244,11 +367,8 @@ async def sweep_stale_solo(w3, nft, solo) -> None:
     if stale:
         log.warning(
             "%d solo game(s) stuck pending >%.0fmin (never settled by live "
-            "combat): %s. These are NOT auto-resolved anymore — the player "
-            "can call SoloArena.reclaim(gameId) to get their stake back. "
-            "If this list keeps growing, check why live settlement is "
-            "failing (see combat.tsx result 'stake.settled' / the "
-            "'STAKE SETTLEMENT FAILED' log line).",
+            "combat): %s. These are NOT auto-resolved — the player can call "
+            "SoloArena.reclaim(gameId) to get their stake back after 1h.",
             len(stale), SOLO_PENDING_TTL_S / 60, stale,
         )
     return
@@ -387,17 +507,55 @@ async def _verify_game_server(w3: Web3, arena, solo) -> None:
     """
     s = get_settings()
     if not s.game_server_private_key:
-        log.warning("GAME_SERVER_PRIVATE_KEY not set — no on-chain results can be submitted")
+        log.critical(
+            "GAME_SERVER_PRIVATE_KEY not set — NO on-chain results can be "
+            "submitted and NO staked win can ever pay out."
+        )
         return
     signer = Account.from_key(s.game_server_private_key).address
 
+    # ---- 1. can the signer pay for gas at all?
+    # This is checked FIRST and loudest because a correctly-authorised
+    # signer with an empty balance fails exactly like a misconfigured one,
+    # and it is by far the more common mistake.
+    try:
+        balance = w3.eth.get_balance(signer)
+    except Exception:
+        log.exception("could not read game-server balance for %s", signer)
+        balance = None
+
+    if balance == 0:
+        log.critical(
+            "GAME SERVER HAS NO GAS. Account %s holds 0 wei on chain %s. "
+            "submitResult() can never be broadcast, so every staked win will "
+            "stay Pending and players will have to reclaim() their stake "
+            "after 1h instead of being paid 1.8x. FUND THIS ADDRESS.",
+            signer, w3.eth.chain_id,
+        )
+    elif balance is not None:
+        log.info(
+            "game-server %s funded with %s BOT ✔",
+            signer, Web3.from_wei(balance, "ether"),
+        )
+
+    # ---- 2. is the signer the account each contract actually trusts?
     async def _check(name: str, contract) -> None:
         if contract is None:
+            log.warning("%s address not configured — its results can't be submitted", name)
             return
         try:
             onchain = contract.functions.gameServer().call()
         except Exception:
-            return  # older BattleArena ABI has no gameServer() getter — skip
+            # NOT a benign "old ABI" skip any more: gameServer() is in
+            # both ABIs now, so reaching here means the address is wrong,
+            # the contract isn't deployed, or the RPC is unreachable.
+            log.critical(
+                "%s.gameServer() could not be read at %s — wrong address, "
+                "not deployed, or RPC down. Results for %s cannot be verified "
+                "and will likely fail.",
+                name, getattr(contract, "address", "?"), name,
+            )
+            return
         if onchain.lower() != signer.lower():
             log.critical(
                 "%s.gameServer() = %s but GAME_SERVER_PRIVATE_KEY signs as %s "
@@ -411,6 +569,28 @@ async def _verify_game_server(w3: Web3, arena, solo) -> None:
 
     await _check("SoloArena", solo)
     await _check("BattleArena", arena)
+
+    # ---- 3. can the house actually cover the wins it is accepting?
+    if solo is not None:
+        try:
+            bankroll = w3.eth.get_balance(solo.address)
+            reserved = solo.functions.reserved().call()
+            free = bankroll - reserved
+            log.info(
+                "SoloArena bankroll %s BOT, reserved %s BOT, max new stake %s BOT",
+                Web3.from_wei(bankroll, "ether"),
+                Web3.from_wei(reserved, "ether"),
+                Web3.from_wei(max(0, free) * 10 // 8, "ether"),
+            )
+            if free <= 0:
+                log.critical(
+                    "SoloArena has no free bankroll (balance %s <= reserved %s) "
+                    "— play() will revert StakeTooLarge for every new stake. "
+                    "Call fundHouse() to top it up.",
+                    bankroll, reserved,
+                )
+        except Exception:
+            log.exception("SoloArena bankroll check failed")
 
 
 async def run_listener() -> None:
@@ -460,6 +640,9 @@ async def run_listener() -> None:
                         from_block=frm, to_block=to
                     ):
                         await index_solo(ev)
+                    # wins whose settlement tx failed get another go every
+                    # tick — this is what actually pays the player
+                    await retry_unsettled_solo(w3, solo)
                     await sweep_stale_solo(w3, nft, solo)
 
                 if league is not None:

@@ -86,6 +86,10 @@ class RoomManager:
             room.match.input_attack(slot, "heavy" if heavy else "light")
         elif kind == "defend":
             room.match.input_defend(slot)
+        elif kind == "super":
+            # engine checks the meter is actually full — a hacked client
+            # asking for a free super just gets ignored
+            room.match.input_super(slot)
 
     async def leave(self, room: Room, slot: int) -> None:
         """Disconnect: the fighter's own AI takes over so matches finish."""

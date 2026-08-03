@@ -90,7 +90,9 @@ export function MobileNavCarousel({ items, onClose }: { items: NavCard[]; onClos
   };
 
   return (
-    <div className="absolute inset-0 z-[100] flex flex-col bg-background/97 backdrop-blur-md">
+    // fixed, not absolute: the shell is a normal scrolling portrait page
+    // now, so an absolutely-positioned overlay would scroll away with it.
+    <div className="fixed inset-0 z-[100] flex flex-col bg-background/97 backdrop-blur-md">
       <div className="flex items-center justify-between p-4">
         <span className="font-display text-sm tracking-[0.3em] text-muted-foreground">MENU</span>
         <button onClick={onClose} className="rounded-full border border-border bg-card/70 p-2 text-muted-foreground">

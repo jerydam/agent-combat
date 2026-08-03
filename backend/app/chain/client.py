@@ -110,6 +110,14 @@ BATTLE_ARENA_ABI = [
         ],
         "outputs": [],
     },
+    # see the note on SOLO_ABI.gameServer — same startup check
+    {
+        "name": "gameServer",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"name": "", "type": "address"}],
+    },
 ]
 
 
@@ -219,6 +227,48 @@ SOLO_ABI = [
             {"name": "movesHash", "type": "bytes32"},
         ],
         "outputs": [],
+    },
+    # --- read-only, but REQUIRED. _verify_game_server() calls
+    # gameServer() to prove the backend's key is the account the
+    # contract trusts. Without this entry web3 raises
+    # ABIFunctionNotFound, the caller swallows it as "old ABI, skip",
+    # and the single most important startup check silently never runs
+    # — which is how a misconfigured/unfunded signer stayed invisible
+    # while every payout quietly failed.
+    {
+        "name": "gameServer",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"name": "", "type": "address"}],
+    },
+    {
+        "name": "reserved",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"name": "", "type": "uint256"}],
+    },
+    {
+        "name": "maxStake",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [],
+        "outputs": [{"name": "", "type": "uint256"}],
+    },
+    {
+        "name": "getGame",
+        "type": "function",
+        "stateMutability": "view",
+        "inputs": [{"name": "gameId", "type": "uint256"}],
+        "outputs": [
+            {"name": "player", "type": "address"},
+            {"name": "agentId", "type": "uint256"},
+            {"name": "botId", "type": "uint256"},
+            {"name": "stake", "type": "uint256"},
+            {"name": "status", "type": "uint8"},  # 0 None 1 Pending 2 Resolved 3 Reclaimed
+            {"name": "playerWon", "type": "bool"},
+        ],
     },
 ]
 

@@ -27,9 +27,11 @@ from ..chain.wbot_price import get_wbot_price
 from ..market.catalog import (
     ACHIEVEMENT_BY_ID,
     ACHIEVEMENTS,
+    AVATAR_TIERS,
     CATALOG,
     ITEM_BY_ID,
     POINTS_PER_USD,
+    avatar_power_rating,
     bot_price_wei,
     evaluate,
     usd_price,
@@ -124,6 +126,11 @@ async def catalog():
                 "bot_price_wei": str(bot_price_wei(i, bot_usd)),
                 "boost": i.boost,
                 "power": i.power,
+                # avatars are fighters now, not just outfits — ship the
+                # numbers so the shop can show what the money buys
+                "combat": i.combat,
+                "tier": AVATAR_TIERS.get(i.id),
+                "rating": avatar_power_rating(i) if i.kind == "skin" else None,
             }
             for i in CATALOG
         ],

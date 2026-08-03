@@ -8,11 +8,17 @@ export interface FighterSnap {
   stamina: number;
   phase: 'idle' | 'windup' | 'cooldown';
   phase_ends_at: number;
-  attack_kind: 'light' | 'heavy';
+  attack_kind: 'light' | 'heavy' | 'super';
   blocking: boolean;
   exhausted_until: number;
   staggered_until: number;
-  score: { damage: number; hits: number; attacks: number; defends: number; parries: number };
+  /** 0-100; at 100 the special is available */
+  super_meter: number;
+  super_ready: boolean;
+  score: {
+    damage: number; hits: number; attacks: number;
+    defends: number; parries: number; supers: number;
+  };
 }
 
 export interface StateMsg {
@@ -33,8 +39,11 @@ export interface RewardInfo {
 
 export interface StakeInfo {
   won: boolean;
+  /** true ONLY when the payout tx confirmed on-chain (receipt status 1) */
   settled: boolean;
   tx_hash?: string;
+  /** why settlement failed, when it did */
+  error?: string;
   stake_wei: string;
   payout_wei: string;
 }

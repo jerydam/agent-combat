@@ -86,6 +86,8 @@ export interface SoloGame {
   moves?: BattleLog;
   tx_hash: string;
   reclaimable?: boolean;
+  /** won, but the payout tx hasn't confirmed yet — backend is retrying */
+  awaiting_payout?: boolean;
 }
 
 export interface FixtureInfo {

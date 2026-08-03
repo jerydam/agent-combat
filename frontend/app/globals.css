@@ -122,6 +122,129 @@
     background: hsl(var(--border));
     border-radius: 9999px;
   }
+
+  /* ==========================================================
+     PIXELVERSE — the arena's 8-bit skin. Everything in here is
+     scoped to the combat screen; the rest of the app keeps the
+     smooth "brushed steel" look.
+     ========================================================== */
+
+  /* Kill every kind of smoothing so upscaled art stays chunky. */
+  .pixelated {
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+  }
+
+  .font-pixel {
+    font-family: var(--font-pixel), ui-monospace, monospace;
+    letter-spacing: 0.04em;
+    /* Press Start 2P is tall; pull the line box in so it sits on a grid */
+    line-height: 1.35;
+  }
+
+  /* Hard 1px drop shadow — the classic sprite-label outline. */
+  .pixel-text {
+    text-shadow:
+      2px 0 0 #0a0a12, -2px 0 0 #0a0a12, 0 2px 0 #0a0a12, 0 -2px 0 #0a0a12,
+      0 4px 0 rgba(0, 0, 0, 0.55);
+  }
+
+  /* Stepped border built from box-shadows — no radius, no antialiasing. */
+  .pixel-frame {
+    border-radius: 0;
+    box-shadow:
+      0 -4px 0 0 var(--px-edge, hsl(var(--border))),
+      0 4px 0 0 var(--px-edge, hsl(var(--border))),
+      -4px 0 0 0 var(--px-edge, hsl(var(--border))),
+      4px 0 0 0 var(--px-edge, hsl(var(--border)));
+  }
+
+  /* Health / stamina bar chopped into visible cells. */
+  .pixel-bar {
+    border-radius: 0;
+    image-rendering: pixelated;
+  }
+  .pixel-bar-fill {
+    border-radius: 0;
+    /* segment gutters drawn over the fill */
+    -webkit-mask-image: repeating-linear-gradient(
+      90deg, #000 0 6px, transparent 6px 8px);
+    mask-image: repeating-linear-gradient(
+      90deg, #000 0 6px, transparent 6px 8px);
+    transition: width 90ms steps(6, end);
+  }
+
+  /* CRT: scanlines + aperture grille + corner falloff. */
+  .crt::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 45;
+    background:
+      repeating-linear-gradient(
+        0deg, rgba(0, 0, 0, 0.30) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(
+        90deg, rgba(255, 0, 60, 0.05) 0 1px,
+        rgba(0, 255, 160, 0.04) 1px 2px,
+        rgba(40, 120, 255, 0.05) 2px 3px);
+    mix-blend-mode: overlay;
+  }
+  .crt::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 46;
+    background: radial-gradient(
+      ellipse 85% 75% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+  }
+
+  /* Slow bright band rolling down the tube. */
+  .crt-roll {
+    position: absolute;
+    inset-inline: 0;
+    height: 22%;
+    pointer-events: none;
+    z-index: 44;
+    background: linear-gradient(
+      180deg, transparent, hsl(var(--primary) / 0.05) 45%, transparent);
+    animation: crt-roll 7s linear infinite;
+  }
+
+  /* Parallax pixel starfield for the arena backdrop. */
+  .px-stars {
+    background-image:
+      radial-gradient(1px 1px at 12% 22%, hsl(var(--primary) / 0.9), transparent),
+      radial-gradient(1px 1px at 74% 12%, hsl(var(--accent) / 0.8), transparent),
+      radial-gradient(1px 1px at 42% 68%, hsl(210 25% 88% / 0.7), transparent),
+      radial-gradient(1px 1px at 88% 54%, hsl(var(--primary) / 0.6), transparent),
+      radial-gradient(1px 1px at 26% 86%, hsl(210 25% 88% / 0.5), transparent),
+      radial-gradient(1px 1px at 58% 38%, hsl(var(--accent) / 0.5), transparent);
+    background-size: 160px 160px;
+    image-rendering: pixelated;
+  }
+
+  /* Chunky perspective floor grid that scrolls toward the viewer. */
+  .px-floor {
+    background-image:
+      linear-gradient(hsl(var(--primary) / 0.35) 2px, transparent 2px),
+      linear-gradient(90deg, hsl(var(--primary) / 0.22) 2px, transparent 2px);
+    background-size: 32px 32px;
+    animation: px-floor-scroll 1.6s linear infinite;
+    mask-image: linear-gradient(180deg, transparent, #000 55%);
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 55%);
+  }
+
+  /* Ordered-dither veil — sells the limited-palette look. */
+  .px-dither {
+    background-image:
+      repeating-conic-gradient(
+        rgba(255, 255, 255, 0.035) 0% 25%, transparent 0% 50%);
+    background-size: 4px 4px;
+    image-rendering: pixelated;
+  }
 }
 
 @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
@@ -162,8 +285,75 @@
 .animate-slide-in-l { animation: slide-in-l .4s ease-out both; }
 .animate-slide-in-r { animation: slide-in-r .4s ease-out both; }
 
+/* ---------------------------------------------------- pixelverse motion
+   Everything below animates in STEPS, never eased — smooth interpolation
+   is what makes a pixel scene read as "HD art with a filter" instead of
+   a sprite engine. */
+
+@keyframes crt-roll { 0% { top: -25%; } 100% { top: 105%; } }
+@keyframes px-floor-scroll { 0% { background-position: 0 0; } 100% { background-position: 0 32px; } }
+
+/* damage numbers: rise on a 6-step ladder, then blink out */
+@keyframes px-float-up {
+  0%   { transform: translateY(0)     scale(1); opacity: 1; }
+  70%  { transform: translateY(-40px) scale(1); opacity: 1; }
+  75%  { opacity: 0; }
+  80%  { opacity: 1; }
+  90%  { opacity: 0; }
+  100% { transform: translateY(-52px) scale(1); opacity: 0; }
+}
+
+/* sprite reacting to a clean hit: knocked back, then snapped home */
+@keyframes px-knockback-l {
+  0% { transform: translateX(0); } 30% { transform: translateX(-10px); }
+  60% { transform: translateX(4px); } 100% { transform: translateX(0); }
+}
+@keyframes px-knockback-r {
+  0% { transform: translateX(0); } 30% { transform: translateX(10px); }
+  60% { transform: translateX(-4px); } 100% { transform: translateX(0); }
+}
+
+/* hit-stop: the whole stage jolts and blows out for two frames */
+@keyframes px-hitstop {
+  0%   { transform: scale(1);     filter: brightness(1); }
+  20%  { transform: scale(1.035); filter: brightness(2.4) saturate(0.2); }
+  55%  { transform: scale(0.995); filter: brightness(1); }
+  100% { transform: scale(1);     filter: brightness(1); }
+}
+
+/* expanding pixel shockwave ring */
+@keyframes px-shock {
+  0%   { transform: scale(0.2); opacity: 0.95; border-width: 10px; }
+  100% { transform: scale(2.6); opacity: 0;    border-width: 2px; }
+}
+
+/* text that slams in on a 4-step scale ladder */
+@keyframes px-slam {
+  0%   { transform: scale(3);   opacity: 0; }
+  40%  { transform: scale(1.4); opacity: 1; }
+  70%  { transform: scale(0.9); opacity: 1; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+/* idle sprite bob — 2 frames, like a real idle animation */
+@keyframes px-idle { 0%,49% { transform: translateY(0); } 50%,100% { transform: translateY(-3px); } }
+
+/* palette-cycling glow for the KO banner */
+@keyframes px-blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0.25; } }
+
+.animate-px-float-up   { animation: px-float-up 0.95s steps(8, end) forwards; }
+.animate-px-knockback-l{ animation: px-knockback-l 0.22s steps(3, end); }
+.animate-px-knockback-r{ animation: px-knockback-r 0.22s steps(3, end); }
+.animate-px-hitstop    { animation: px-hitstop 0.14s steps(3, end); }
+.animate-px-shock      { animation: px-shock 0.45s steps(6, end) forwards; }
+.animate-px-slam       { animation: px-slam 0.4s steps(4, end) both; }
+.animate-px-idle       { animation: px-idle 0.9s steps(1, end) infinite; }
+.animate-px-blink      { animation: px-blink 0.5s steps(1, end) infinite; }
+
 @media (prefers-reduced-motion: reduce) {
   .animate-float,.animate-pulse-glow,.animate-pulse-glow-accent,.animate-scan,
   .animate-vs-slam,.animate-slide-in-l,.animate-slide-in-r,
-  .animate-shake,.animate-slash { animation: none; }
+  .animate-shake,.animate-slash,
+  .animate-px-knockback-l,.animate-px-knockback-r,.animate-px-hitstop,
+  .animate-px-idle,.animate-px-blink,.crt-roll,.px-floor { animation: none; }
 }

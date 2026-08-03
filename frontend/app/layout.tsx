@@ -1,6 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Orbitron, Rajdhani } from 'next/font/google';
+import { Orbitron, Press_Start_2P, Rajdhani } from 'next/font/google';
 import { Providers } from './providers';
 
 const orbitron = Orbitron({
@@ -13,6 +13,14 @@ const rajdhani = Rajdhani({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-body',
+  display: 'swap',
+});
+
+// 8-bit type for the arena only — HUD, damage numbers, VS slam.
+const pressStart = Press_Start_2P({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-pixel',
   display: 'swap',
 });
 
@@ -54,7 +62,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${orbitron.variable} ${rajdhani.variable} font-body antialiased`}
+        className={`${orbitron.variable} ${rajdhani.variable} ${pressStart.variable} font-body antialiased`}
       >
         <Providers>{children}</Providers>
       </body>

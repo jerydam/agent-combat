@@ -56,9 +56,32 @@ TUNING = {
     # scoring
     "defend_score": 8,
     "parry_score": 20,
+    "super_score": 35,
+    # ---- SUPER (the Mortal-Kombat-style meter move) -------------------
+    # The meter is earned, not given: mostly by landing hits, partly by
+    # eating them, so a losing player still builds a comeback option.
+    "super_max": 100.0,
+    "super_gain_per_dmg_dealt": 1.25,
+    "super_gain_per_dmg_taken": 0.55,
+    "super_gain_on_parry": 12.0,
+    "super_gain_on_block": 3.0,
+    # Long, obvious wind-up. A super MUST be reactable — an unblockable
+    # instant nuke would just be a coin flip on who charged first.
+    "super_windup_ms": 900,
+    "super_cooldown_ms": 900,
+    "super_base": 46,
+    "super_crit_mult": 1.35,
+    # Blocking a super still hurts a lot (it beats a normal block), but
+    # it is the difference between surviving and not.
+    "super_block_reduction": 0.55,
+    # Parrying one is the highest-skill play in the game and fully
+    # negates it, with a long punish window.
+    "super_parry_stagger_ms": 1100,
+    "super_parry_counter_mult": 0.45,
+    "super_stamina_cost": 15.0,
 }
 
-AttackKind = Literal["light", "heavy"]
+AttackKind = Literal["light", "heavy", "super"]
 
 
 @dataclass
@@ -88,10 +111,49 @@ class Combatant:
     defends: int = 0
     parries: int = 0
 
+    # --- super meter ---
+    super_meter: float = 0.0
+    supers_landed: int = 0
+
     def __post_init__(self) -> None:
         s = self.stats
-        self.max_hp = 100 + s.level * 10 + s.defense // 2
+        # `hp_bonus` is the avatar's contribution — a heavier suit of
+        # armour is literally more health to chew through.
+        self.max_hp = (
+            100 + s.level * 10 + s.defense // 2 + int(self.mods.get("hp_bonus", 0))
+        )
         self.hp = self.max_hp
+
+    # -- avatar-driven modifiers (default to "no effect") --
+    @property
+    def power_mult(self) -> float:
+        """Hit power: multiplies damage this fighter deals."""
+        return float(self.mods.get("power_mult", 1.0))
+
+    @property
+    def damage_taken_mult(self) -> float:
+        """Defence rate: multiplies damage this fighter receives."""
+        return float(self.mods.get("damage_taken_mult", 1.0))
+
+    @property
+    def windup_mult(self) -> float:
+        """Attack speed: <1 winds up faster, >1 slower."""
+        return float(self.mods.get("windup_mult", 1.0))
+
+    @property
+    def crit_bonus(self) -> float:
+        return float(self.mods.get("crit_bonus", 0.0))
+
+    @property
+    def super_gain_mult(self) -> float:
+        return float(self.mods.get("super_gain_mult", 1.0))
+
+    @property
+    def super_ready(self) -> bool:
+        return self.super_meter >= TUNING["super_max"]
+
+    def add_super(self, amount: float) -> None:
+        self.super_meter = min(TUNING["super_max"], self.super_meter + amount)
 
     # -- abilities from evolution tier --
     @property
@@ -107,11 +169,19 @@ class Combatant:
         return self.stats.tier >= 3
 
     def windup_ms(self, kind: AttackKind) -> float:
+        if kind == "super":
+            # deliberately NOT scaled by avatar speed — every super gets
+            # the same reactable telegraph, or fast avatars would own an
+            # unanswerable move
+            return TUNING["super_windup_ms"]
         base = TUNING["windup_base"] - self.stats.speed * TUNING["windup_per_speed"]
-        return base * TUNING["heavy_windup_mult"] if kind == "heavy" else base
+        if kind == "heavy":
+            base *= TUNING["heavy_windup_mult"]
+        return max(90.0, base * self.windup_mult)
 
     def cooldown_ms(self) -> float:
-        return TUNING["cooldown_base"] - self.stats.speed * TUNING["cooldown_per_speed"]
+        base = TUNING["cooldown_base"] - self.stats.speed * TUNING["cooldown_per_speed"]
+        return max(80.0, base * self.windup_mult)
 
     def is_exhausted(self, now: float) -> bool:
         return now < self.exhausted_until
@@ -127,12 +197,15 @@ class Combatant:
             "blocking": self.block_opened_at >= 0,
             "exhausted_until": round(self.exhausted_until),
             "staggered_until": round(self.staggered_until),
+            "super_meter": round(self.super_meter, 1),
+            "super_ready": self.super_ready,
             "score": {
                 "damage": self.damage_dealt,
                 "hits": self.hits_landed,
                 "attacks": self.attacks_thrown,
                 "defends": self.defends,
                 "parries": self.parries,
+                "supers": self.supers_landed,
             },
         }
 
@@ -177,6 +250,34 @@ class CombatMatch:
         f.phase_ends_at = now + f.windup_ms(kind)
         f.attacks_thrown += 1
         self._push({"t": round(now), "kind": "windup", "who": who, "attack": kind})
+
+    def input_super(self, who: int) -> bool:
+        """Spend a full meter on the special. Returns True if it launched.
+
+        Server-authoritative like every other input: a client that asks
+        for a super without a full bar simply gets ignored.
+        """
+        if self.over:
+            return False
+        f, now = self.f[who], self.t
+        if not f.super_ready:
+            return False
+        if f.phase != "idle" or now < f.staggered_until or f.is_exhausted(now):
+            return False
+        # A super costs stamina too, so it can't be fired while gassed out
+        if not self._spend(f, TUNING["super_stamina_cost"], now, who):
+            return False
+
+        f.super_meter = 0.0
+        f.phase = "windup"
+        f.attack_kind = "super"
+        f.phase_ends_at = now + f.windup_ms("super")
+        f.attacks_thrown += 1
+        self._push({
+            "t": round(now), "kind": "super_start", "who": who,
+            "windup_ms": round(f.windup_ms("super")),
+        })
+        return True
 
     def input_defend(self, who: int) -> None:
         if self.over:
@@ -271,15 +372,27 @@ class CombatMatch:
         d_idx = 1 - attacker_idx
         dfd = self.f[d_idx]
         now, kind = self.t, atk.attack_kind
+        is_super = kind == "super"
 
-        base = TUNING["heavy_base"] if kind == "heavy" else TUNING["light_base"]
+        base = (
+            TUNING["super_base"] if is_super
+            else TUNING["heavy_base"] if kind == "heavy"
+            else TUNING["light_base"]
+        )
         dmg = base * (1 + atk.stats.attack / 200)
         dmg *= 1 - dfd.stats.defense / (dfd.stats.defense + 150)
+        # --- avatar modifiers: the attacker's hit power vs the
+        # defender's defence rate. Both default to 1.0, so an agent with
+        # no skin equipped fights exactly as it always did.
+        dmg *= atk.power_mult
+        dmg *= dfd.damage_taken_mult
         crit = self.rng.random() < (
-            TUNING["crit_base"] + atk.stats.intelligence * TUNING["crit_per_int"]
+            TUNING["crit_base"]
+            + atk.stats.intelligence * TUNING["crit_per_int"]
+            + atk.crit_bonus
         )
         if crit:
-            dmg *= TUNING["crit_mult"]
+            dmg *= TUNING["super_crit_mult"] if is_super else TUNING["crit_mult"]
         if dfd.is_exhausted(now):
             dmg *= TUNING["exhaust_dmg_taken_mult"]
 
@@ -291,49 +404,77 @@ class CombatMatch:
             is_parry = True
 
         if is_parry:
-            atk.staggered_until = now + TUNING["stagger_ms"]
+            # Parrying a super is the single biggest swing in the game:
+            # the whole move is negated and the punish window is long.
+            atk.staggered_until = now + (
+                TUNING["super_parry_stagger_ms"] if is_super else TUNING["stagger_ms"]
+            )
             dfd.parries += 1
             dfd.defends += 1
+            dfd.add_super(TUNING["super_gain_on_parry"] * dfd.super_gain_mult)
             counter = 0
-            if dfd.has_counter:
-                counter = max(1, round(dmg * 0.3))
+            if dfd.has_counter or is_super:
+                mult = TUNING["super_parry_counter_mult"] if is_super else 0.3
+                counter = max(1, round(dmg * mult))
                 atk.hp = max(0, atk.hp - counter)
                 dfd.damage_dealt += counter
             self._push({
-                "t": round(now), "kind": "parry", "who": d_idx,
-                "counter": counter, "attacker_hp": atk.hp,
+                "t": round(now), "kind": "super_parried" if is_super else "parry",
+                "who": d_idx, "counter": counter, "attacker_hp": atk.hp,
             })
         elif block_open:
-            reduction = (
-                TUNING["heavy_vs_block_reduction"]
-                if kind == "heavy"
-                else min(
+            if is_super:
+                # A super punches through a guard harder than a heavy —
+                # blocking survives it, it doesn't shrug it off.
+                reduction = min(
+                    0.75,
+                    TUNING["super_block_reduction"]
+                    + dfd.mods.get("block_bonus", 0.0),
+                )
+            elif kind == "heavy":
+                reduction = TUNING["heavy_vs_block_reduction"]
+            else:
+                reduction = min(
                     0.9,
                     TUNING["block_reduction"]
                     + dfd.stats.defense * TUNING["block_reduction_per_def"]
                     + dfd.mods.get("block_bonus", 0.0),
                 )
-            )
             taken = max(1, round(dmg * (1 - reduction)))
             dfd.hp = max(0, dfd.hp - taken)
             atk.damage_dealt += taken
             dfd.defends += 1
+            atk.add_super(taken * TUNING["super_gain_per_dmg_dealt"] * atk.super_gain_mult)
+            dfd.add_super(
+                (taken * TUNING["super_gain_per_dmg_taken"]
+                 + TUNING["super_gain_on_block"]) * dfd.super_gain_mult
+            )
             self._push({
-                "t": round(now), "kind": "blocked", "who": d_idx,
-                "dmg": taken, "target_hp": dfd.hp,
+                "t": round(now), "kind": "super_blocked" if is_super else "blocked",
+                "who": d_idx, "dmg": taken, "target_hp": dfd.hp,
             })
         else:
             taken = max(1, round(dmg))
             dfd.hp = max(0, dfd.hp - taken)
             atk.damage_dealt += taken
             atk.hits_landed += 1
+            if is_super:
+                atk.supers_landed += 1
+            # Landing hits is the main way the meter fills; eating them
+            # fills it slower, so a player being beaten down still earns
+            # a comeback button instead of just losing faster.
+            atk.add_super(taken * TUNING["super_gain_per_dmg_dealt"] * atk.super_gain_mult)
+            dfd.add_super(taken * TUNING["super_gain_per_dmg_taken"] * dfd.super_gain_mult)
             self._push({
-                "t": round(now), "kind": "hit", "who": attacker_idx,
-                "attack": kind, "dmg": taken, "crit": crit, "target_hp": dfd.hp,
+                "t": round(now), "kind": "super_hit" if is_super else "hit",
+                "who": attacker_idx, "attack": kind, "dmg": taken,
+                "crit": crit, "target_hp": dfd.hp,
             })
 
         atk.phase = "cooldown"
-        atk.phase_ends_at = now + atk.cooldown_ms()
+        atk.phase_ends_at = now + (
+            TUNING["super_cooldown_ms"] if is_super else atk.cooldown_ms()
+        )
 
         for idx in (0, 1):
             if self.f[idx].hp <= 0 and not self.over:
@@ -354,6 +495,7 @@ class CombatMatch:
             f.damage_dealt
             + f.defends * TUNING["defend_score"]
             + f.parries * TUNING["parry_score"]
+            + f.supers_landed * TUNING["super_score"]
         )
 
     def snapshot(self) -> dict:
@@ -382,6 +524,10 @@ class CombatMatch:
                     "hits": f.hits_landed,
                     "defends": f.defends,
                     "parries": f.parries,
+                    "supers": f.supers_landed,
+                    # the avatar's contribution is part of the auditable
+                    # record — a replay must explain why numbers differed
+                    "mods": f.mods or {},
                 }
                 for i, f in enumerate(self.f)
             ],

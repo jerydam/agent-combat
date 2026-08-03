@@ -30,7 +30,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..database import SessionLocal
 from ..engine.agent_engine import FighterState as ChainStats, Personality
-from ..market.catalog import ITEM_BY_ID
+from ..market.catalog import ITEM_BY_ID, avatar_mods, merge_mods
 from ..models import (AgentCache, AgentLoadout, CombatMatchRecord,
                       PlayerProgress, SoloGame)
 from ..combat.rooms import Room, manager
@@ -77,7 +77,16 @@ async def _from_cache(agent_id: int) -> ChainStats | None:
 
 
 async def _settle_stake(room: Room) -> dict:
-    """Submit this live fight's outcome for the staked SoloArena game."""
+    """Submit this live fight's outcome for the staked SoloArena game.
+
+    Order matters here. The result is written to the DB as `unsettled`
+    BEFORE the chain is touched, so that if the tx fails — or this
+    process dies mid-submit — the outcome the player actually earned is
+    already durable and the listener's retry loop can finish the job.
+    Submitting first and recording afterwards loses the result on every
+    failure path, which is how a real win turns into "wait an hour and
+    reclaim your own stake".
+    """
     import asyncio
 
     m = room.match
@@ -89,40 +98,54 @@ async def _settle_stake(room: Room) -> dict:
         stake_wei = g.stake_wei
     result_log = m.result_log()
 
+    from ..chain.signer import moves_hash as _mh
+    m_hash = _mh(result_log)
+    payout = str(int(stake_wei) * 18 // 10) if won else "0"
+
+    # 1. persist the earned outcome first — this is the retry's input
+    async with SessionLocal() as db:
+        g = await db.get(SoloGame, room.solo_game_id)
+        g.status = "unsettled"
+        g.player_won = won
+        g.moves = result_log
+        g.moves_hash = "0x" + m_hash.hex().removeprefix("0x")
+        await db.commit()
+
     def _submit() -> str:
         from ..chain.client import get_contracts, get_w3
         from ..chain.listener import _send_tx
-        from ..chain.signer import moves_hash
 
         w3 = get_w3()
         solo = get_contracts(w3)[4]
+        if solo is None:
+            raise RuntimeError("SOLO_ARENA_ADDRESS not configured")
+        # _send_tx waits for the receipt and raises unless status == 1,
+        # so reaching the next line means the payout really happened.
         return _send_tx(
-            w3,
-            solo.functions.submitResult(
-                room.solo_game_id, won, moves_hash(result_log)
-            ),
+            w3, solo.functions.submitResult(room.solo_game_id, won, m_hash)
         )
 
     try:
         tx_hash = await asyncio.get_event_loop().run_in_executor(None, _submit)
-    except Exception:
-        log.exception("submitResult failed for solo game %s (sweeper will retry)",
-                      room.solo_game_id)
+    except Exception as e:
+        log.exception(
+            "STAKE SETTLEMENT FAILED for solo game %s (won=%s, stake=%s). "
+            "Result is saved as 'unsettled'; the listener will keep retrying. "
+            "Most common cause: the game-server account is out of gas.",
+            room.solo_game_id, won, stake_wei,
+        )
         return {"stake": {"won": won, "settled": False,
-                          "stake_wei": stake_wei, "payout_wei": "0"}}
+                          "error": str(e)[:200],
+                          "stake_wei": stake_wei,
+                          "payout_wei": payout}}
 
-    from ..chain.signer import moves_hash as _mh
-
+    # 2. only now is it genuinely resolved on-chain
     async with SessionLocal() as db:
         g = await db.get(SoloGame, room.solo_game_id)
         g.status = "resolved"
-        g.player_won = won
-        g.moves = result_log
-        g.moves_hash = _mh(result_log).hex()
         g.tx_hash = tx_hash
         await db.commit()
 
-    payout = str(int(stake_wei) * 18 // 10) if won else "0"
     return {"stake": {"won": won, "settled": True, "tx_hash": tx_hash,
                       "stake_wei": stake_wei, "payout_wei": payout}}
 
@@ -235,12 +258,21 @@ async def practice(ws: WebSocket):
             2,
         )
 
+    # The fighter's modifiers come from BOTH slots: the equipped avatar
+    # (hit power / defence rate / attack speed / super charge, scaled to
+    # what the avatar cost) and the equipped perk. merge_mods composes
+    # them properly instead of one overwriting the other.
     mods_a: dict = {}
     if agent_id is not None:
         async with SessionLocal() as db:
             l = await db.get(AgentLoadout, agent_id)
-        if l and l.power and (item := ITEM_BY_ID.get(l.power)) and item.power:
-            mods_a = dict(item.power)
+        power_mods = None
+        skin_mods = None
+        if l:
+            skin_mods = avatar_mods(l.skin)
+            if l.power and (item := ITEM_BY_ID.get(l.power)) and item.power:
+                power_mods = item.power
+        mods_a = merge_mods(skin_mods, power_mods)
 
     room = manager.create(
         room_id=f"practice-{uuid.uuid4().hex[:8]}",

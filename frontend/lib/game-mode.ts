@@ -3,12 +3,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
- * Immersive game mode:
- * 1. requestFullscreen (hides browser chrome, enables orientation lock)
- * 2. screen.orientation.lock('landscape') — works on Android in fullscreen
- * 3. iOS / unsupported: CSS-rotate the whole game 90° while the device is
- *    held portrait, so the game is ALWAYS landscape regardless of how the
- *    phone is held. Buttons keep working — the browser hit-tests through
+ * Immersive game mode — used by the COMBAT SCREEN ONLY.
+ *
+ * Every other page in the app is a normal portrait document: it scrolls,
+ * it follows the device orientation, and it must never be touched by any
+ * of this. Only the live fight is landscape, because that is the only
+ * screen whose layout genuinely needs the width (two fighters + HUD +
+ * thumb buttons on the outer edges).
+ *
+ * How landscape is achieved, in order of preference:
+ * 1. requestFullscreen (hides browser chrome, and is a precondition for
+ *    orientation.lock on Android)
+ * 2. screen.orientation.lock('landscape')
+ * 3. iOS / unsupported: CSS-rotate the game 90° while the device is held
+ *    portrait, so the fight is ALWAYS landscape however the phone is
+ *    held. Buttons keep working — the browser hit-tests through
  *    transforms.
  */
 
@@ -44,9 +53,19 @@ export async function exitGameMode(): Promise<void> {
 }
 
 /**
- * Hook: manages game mode for a screen. Returns:
+ * Fire-and-forget unlock for non-game screens. Safe to call on every
+ * route change: it is a no-op when nothing is locked, and it guarantees a
+ * fight that locked landscape can't leave the rest of the app sideways.
+ */
+export function releaseGameMode(): void {
+  if (typeof window === 'undefined') return;
+  void exitGameMode();
+}
+
+/**
+ * Hook: manages landscape game mode for the combat screen. Returns:
  * - rotated: apply the CSS-rotation fallback (device portrait, no lock)
- * - containerStyle: style for the game root when rotated
+ * - containerStyle: style for the game root
  * - activate(): call from a user gesture (button press) to try
  *   fullscreen+lock — browsers require a gesture for both.
  */
@@ -75,6 +94,7 @@ export function useLandscapeGameMode() {
     return () => {
       mq.removeEventListener?.('change', onChange);
       window.removeEventListener('resize', onChange);
+      lockedRef.current = false;
       exitGameMode();
     };
   }, [evaluate]);

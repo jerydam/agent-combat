@@ -50,6 +50,8 @@ export const api = {
         id: string; kind: 'skin' | 'boost' | 'power'; name: string; desc: string;
         point_price: number; usd_price: number; bot_price_wei: string;
         boost: number[] | null; power: Record<string, number> | null;
+        combat: Record<string, number> | null;
+        tier: string | null; rating: number | null;
       }[];
     }>('/market/catalog'),
   agent: (id: number) => get<Agent>(`/agents/${id}`),
@@ -68,11 +70,28 @@ export const api = {
   soloGames: (agentId?: number) =>
     get<SoloGame[]>(`/solo/games${agentId != null ? `?agent_id=${agentId}` : ''}`),
   soloGame: (id: number) => get<SoloGame>(`/solo/games/${id}`),
-  /** This wallet's stakes whose fight never got a live result and are
-   *  past the contract's 1h window — reclaimable via SoloArena.reclaim(). */
-  reclaimableSolo: (player: string) =>
-    get<SoloGame[]>(`/solo/games?player=${player.toLowerCase()}&status=pending&limit=50`)
-      .then((rows) => rows.filter((r: any) => r.reclaimable)),
+  /** This wallet's stakes still escrowed on-chain past the contract's 1h
+   *  window — reclaimable via SoloArena.reclaim(). Covers both fights
+   *  that never got a result AND fights that were won but whose payout
+   *  tx never landed, so a stuck win is always recoverable. */
+  reclaimableSolo: async (player: string) => {
+    const [pending, unsettled] = await Promise.all([
+      get<SoloGame[]>(`/solo/games?player=${player.toLowerCase()}&status=pending&limit=50`),
+      get<SoloGame[]>(`/solo/games?player=${player.toLowerCase()}&status=unsettled&limit=50`),
+    ]);
+    return [...pending, ...unsettled].filter((r: any) => r.reclaimable);
+  },
+  /** Wins this wallet has earned but not been paid yet (settlement tx
+   *  still being retried by the backend). */
+  awaitingPayout: (player: string) =>
+    get<SoloGame[]>(`/solo/games?player=${player.toLowerCase()}&status=unsettled&limit=50`)
+      .then((rows) => rows.filter((r: any) => r.awaiting_payout)),
+  /** Can the arena actually pay winners right now? */
+  payoutHealth: () =>
+    get<{
+      ok: boolean; can_pay_gas: boolean; signer_authorized: boolean;
+      house_funded: boolean; max_stake_wei: string; problems: string[];
+    }>('/solo/health'),
 
   leagues: () => get<LeagueInfo[]>('/leagues'),
   league: (id: number) => get<LeagueInfo>(`/leagues/${id}`),

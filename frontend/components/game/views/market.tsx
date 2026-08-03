@@ -35,6 +35,40 @@ interface Item {
   id: string; kind: 'skin' | 'boost' | 'power'; name: string; desc: string;
   point_price: number; usd_price: number; bot_price_wei: string;
   boost: number[] | null; power: Record<string, number> | null;
+  /** avatars only: combat modifiers, rarity tier, and a 0-100 summary */
+  combat: Record<string, number> | null;
+  tier: string | null;
+  rating: number | null;
+}
+
+const TIER_STYLE: Record<string, string> = {
+  Common: 'border-muted-foreground/40 text-muted-foreground',
+  Uncommon: 'border-success/50 text-success',
+  Rare: 'border-primary/60 text-primary',
+  Epic: 'border-accent/60 text-accent',
+  Legendary: 'border-warning/70 text-warning',
+};
+
+/**
+ * Turn a raw modifier into something a buyer can act on. `power_mult:
+ * 1.048` means nothing; "+4.8% hit power" is the whole reason to pay
+ * more for this avatar, so it has to be legible at a glance.
+ */
+function describeMods(combat: Record<string, number>): string[] {
+  const pct = (v: number) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
+  const out: string[] = [];
+  const m = combat;
+  if (m.power_mult) out.push(`${pct(m.power_mult - 1)} hit power`);
+  // lower damage taken is BETTER, so flip the sign for the reader
+  if (m.damage_taken_mult) out.push(`${pct(1 - m.damage_taken_mult)} defence`);
+  if (m.windup_mult) out.push(`${pct(1 - m.windup_mult)} attack speed`);
+  if (m.crit_bonus) out.push(`${pct(m.crit_bonus)} crit chance`);
+  if (m.block_bonus) out.push(`${pct(m.block_bonus)} block`);
+  if (m.parry_bonus_ms) out.push(`+${m.parry_bonus_ms}ms parry window`);
+  if (m.regen_mult) out.push(`${pct(m.regen_mult - 1)} stamina regen`);
+  if (m.super_gain_mult) out.push(`${pct(m.super_gain_mult - 1)} super charge`);
+  if (m.hp_bonus) out.push(`+${m.hp_bonus} max HP`);
+  return out;
 }
 
 const fmtBot = (wei: bigint) => {
@@ -231,8 +265,16 @@ export function MarketView() {
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 font-display font-bold">
+                  <div className="flex flex-wrap items-center gap-1.5 font-display font-bold">
                     {item.name}
+                    {item.tier && (
+                      <span className={cn(
+                        'rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                        TIER_STYLE[item.tier] ?? 'border-border text-muted-foreground',
+                      )}>
+                        {item.tier}
+                      </span>
+                    )}
                     {has && (
                       <span className="flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                         <Check className="h-3 w-3" /> OWNED
@@ -248,6 +290,39 @@ export function MarketView() {
                   </p>
                 </div>
               </div>
+
+              {/* What the money actually buys in the ring. */}
+              {item.kind === 'skin' && item.combat && Object.keys(item.combat).length > 0 && (
+                <div className="mt-3 rounded-lg border border-border/60 bg-background/40 p-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-display text-[10px] tracking-widest text-muted-foreground">
+                      COMBAT BONUS
+                    </span>
+                    {item.rating != null && (
+                      <span className="font-display text-[10px] font-bold text-warning">
+                        PWR {item.rating}
+                      </span>
+                    )}
+                  </div>
+                  {item.rating != null && (
+                    <div className="mt-1 h-1.5 overflow-hidden rounded bg-secondary">
+                      <div className="h-full bg-gradient-to-r from-primary to-warning"
+                        style={{ width: `${item.rating}%` }} />
+                    </div>
+                  )}
+                  <ul className="mt-2 space-y-0.5">
+                    {describeMods(item.combat).map((line) => (
+                      <li key={line} className={cn(
+                        'text-[11px]',
+                        line.includes('-') ? 'text-destructive' : 'text-success',
+                      )}>
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="mt-3 flex gap-2">
                 {!has && (
                   <>

@@ -78,6 +78,16 @@ class BotController:
             time_to_impact = opp.phase_ends_at - now
             p = me.stats.personality.value
             defend_chance = {0: 0.35, 1: 0.8, 2: 0.65}[p]
+            # An incoming SUPER is the one thing every personality
+            # respects — its long telegraph is exactly the window the
+            # defender is meant to use, so bots take it seriously
+            # instead of eating 46 base damage to the face.
+            # Enough that ignoring a super is never correct, low enough
+            # that landing one still feels earned — at +0.45 the bot
+            # blocked essentially every super and the meter became
+            # decorative.
+            if opp.attack_kind == "super":
+                defend_chance = min(0.85, defend_chance + 0.22)
             # tactical waits to block close to impact for the parry
             trigger = (
                 time_to_impact <= TUNING["parry_window_ms"] * (1.4 if p == 2 else 2.2)
@@ -96,6 +106,24 @@ class BotController:
 
         p = me.stats.personality.value
         stam = me.stamina
+
+        # ---- super: fire it when the meter is full and the moment is
+        # right. Personality decides how patient the bot is: the
+        # aggressive one throws it the second it lights up, the tactical
+        # one saves it for a window the player can't answer.
+        if me.super_ready:
+            opp_helpless = (
+                now < opp.staggered_until
+                or opp.is_exhausted(now)
+                or opp.phase == "cooldown"
+            )
+            fire = {
+                0: opp_helpless or self.rng.random() < 0.45,
+                1: opp_helpless or opp.hp <= opp.max_hp * 0.3,
+                2: opp_helpless,
+            }[p]
+            if fire and m.input_super(self.who):
+                return
 
         if p == 0:  # aggressive: pressure, punish stagger, heavy often
             if now < opp.staggered_until or opp.is_exhausted(now):

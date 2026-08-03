@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { useWallet, shortAddr } from '@/lib/wallet';
 import { api } from '@/lib/api';
-import { useLandscapeGameMode } from '@/lib/game-mode';
+import { releaseGameMode } from '@/lib/game-mode';
 import { MobileNavCarousel } from '@/components/game/mobile-nav-carousel';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
@@ -50,7 +50,6 @@ export function NavShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [points, setPoints] = useState<number | null>(null);
   const isMobile = useIsMobile();
-  const { rotated, containerStyle, activate } = useLandscapeGameMode();
   const [showMenu, setShowMenu] = useState(false);
   const [everConnected, setEverConnected] = useState(false);
 
@@ -72,27 +71,31 @@ export function NavShell({ children }: { children: React.ReactNode }) {
     if (!connected) setEverConnected(false);
   }, [isMobile, connected, everConnected]);
 
-  // Landscape lock needs a user gesture; piggyback on Connect / MENU taps.
-  const handleConnect = async () => {
-    if (isMobile) await activate();
-    connect();
-  };
-  const openMenu = async () => {
-    if (isMobile && !rotated) await activate();
-    setShowMenu(true);
-  };
+  const handleConnect = () => connect();
+  const openMenu = () => setShowMenu(true);
 
   // Game screens are fully immersive: they manage their own chrome and
   // landscape lock (see combat.tsx), so the shell gets entirely out of
   // the way — same on desktop and mobile.
   const GAME_SCREENS = ['/combat'];
-  if (GAME_SCREENS.some((p) => pathname?.startsWith(p))) {
+  const isGameScreen = GAME_SCREENS.some((p) => pathname?.startsWith(p));
+
+  // Everything that is NOT a game screen is portrait, plain and scrollable.
+  // Combat is the only screen allowed to lock landscape, so on the way out
+  // of it — back button, nav, deep link — hand the orientation back to the
+  // OS. Without this the lock survives the route change and the next page
+  // renders sideways.
+  useEffect(() => {
+    if (!isGameScreen) releaseGameMode();
+  }, [isGameScreen, pathname]);
+
+  if (isGameScreen) {
     return <>{children}</>;
   }
 
   if (isMobile) {
     return (
-      <div className="relative min-h-screen bg-background bg-arena" style={{ ...containerStyle, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <div className="relative min-h-[100dvh] bg-background bg-arena">
         <div className="pointer-events-none fixed inset-0 bg-grid opacity-30" />
         <div className="pointer-events-none fixed inset-x-0 top-0 z-40 split-line" />
 
@@ -123,7 +126,10 @@ export function NavShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="relative z-10 px-4 pb-24 pt-6">
+        <main
+          className="relative z-10 px-4 pt-6"
+          style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
+        >
           {connected ? children : (
             <div className="flex flex-col items-center gap-4 py-24 text-center">
               <img src="/logo.png" alt="" className="h-16 w-16 opacity-80" draggable={false} />
@@ -143,7 +149,8 @@ export function NavShell({ children }: { children: React.ReactNode }) {
         {connected && (
           <button
             onClick={openMenu}
-            className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full border-2 border-primary/60 bg-card/90 text-primary shadow-[0_0_24px_hsl(204_95%_53%/0.4)] backdrop-blur"
+            className="fixed right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full border-2 border-primary/60 bg-card/90 text-primary shadow-[0_0_24px_hsl(204_95%_53%/0.4)] backdrop-blur"
+            style={{ bottom: 'calc(1.25rem + env(safe-area-inset-bottom))' }}
           >
             <Menu className="h-6 w-6" />
           </button>
