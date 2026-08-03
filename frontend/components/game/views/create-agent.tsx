@@ -59,7 +59,7 @@ export function CreateAgentView() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide text-steel">MINT AGENT</h1>
+        <h1 className="font-display text-2xl font-bold tracking-wide text-steel sm:text-3xl">MINT AGENT</h1>
           <div className="split-line mt-2 w-32" />
         <p className="mt-1 text-sm text-muted-foreground">
           Stats roll on-chain at mint (40–90 per stat) — the personality you pick shapes how your agent fights forever.

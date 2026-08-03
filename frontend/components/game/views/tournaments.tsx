@@ -57,7 +57,7 @@ export function TournamentsView() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide text-steel">TOURNAMENTS</h1>
+        <h1 className="font-display text-2xl font-bold tracking-wide text-steel sm:text-3xl">TOURNAMENTS</h1>
           <div className="split-line mt-2 w-32" />
         <p className="mt-1 text-sm text-muted-foreground">
           Single-elimination brackets, prize pool on-chain, podium 50/30/20. The whole bracket derives from an on-chain seed — fully replayable.
@@ -66,7 +66,8 @@ export function TournamentsView() {
 
       <Card className="max-w-xl border-border bg-card/60">
         <CardHeader><CardTitle className="font-display text-lg flex items-center gap-2"><Medal className="h-4 w-4 text-primary" /> Enter a tournament</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-3 gap-3">
+        {/* three inputs side-by-side is unusable at 360px — stack them */}
+        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="space-y-1"><label className="text-xs uppercase tracking-wider text-muted-foreground">ID</label>
             <Input value={enterId} onChange={(e) => setEnterId(e.target.value)} placeholder="1" className="bg-background/60" /></div>
           <div className="space-y-1"><label className="text-xs uppercase tracking-wider text-muted-foreground">Fee (BOT)</label>
@@ -81,7 +82,7 @@ export function TournamentsView() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={enter} disabled={busy} className="col-span-3 font-display tracking-wider">
+          <Button onClick={enter} disabled={busy} className="col-span-full font-display tracking-wider">
             {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Medal className="mr-2 h-4 w-4" />} ENTER
           </Button>
         </CardContent>

@@ -1132,11 +1132,16 @@ export function CombatView({ tutorial = false }: { tutorial?: boolean } = {}) {
         <StakeKeypad value={stake} onChange={setStake} onClose={() => setShowKeypad(false)} />
       )}
 
-      {/* settings gear: above every overlay so it always opens */}
-      <button onClick={() => setShowSettings(true)}
-        className="absolute right-3 top-16 z-40 rounded-full border border-border bg-card/70 p-2 text-muted-foreground hover:text-foreground">
-        <Settings className="h-4 w-4" />
-      </button>
+      {/* Settings gear — hidden during the fight itself. It sat over the
+          arena at all times, which both cluttered the screen and put a
+          tappable control right where a thumb reaches during combat.
+          Reachable from the lobby and the result screen instead. */}
+      {phase !== 'fight' && phase !== 'countdown' && (
+        <button onClick={() => setShowSettings(true)}
+          className="absolute right-3 top-16 z-40 rounded-full border border-border bg-card/70 p-2 text-muted-foreground hover:text-foreground">
+          <Settings className="h-4 w-4" />
+        </button>
+      )}
       {showSettings && (
         <div className="absolute inset-y-0 right-0 z-50 w-80 space-y-5 overflow-y-auto border-l border-border bg-card/95 p-5 backdrop-blur">
           <div className="flex items-center justify-between">

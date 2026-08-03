@@ -108,7 +108,7 @@ export function LeaguesView() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide text-steel">LEAGUES</h1>
+        <h1 className="font-display text-2xl font-bold tracking-wide text-steel sm:text-3xl">LEAGUES</h1>
           <div className="split-line mt-2 w-32" />
         <p className="mt-1 text-sm text-muted-foreground">
           Room-based, scheduled, async. Play your fixtures whenever you&apos;re online — your opponents&apos; agents fight autonomously. Unplayed fixtures forfeit at the deadline.
@@ -118,7 +118,7 @@ export function LeaguesView() {
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="border-border bg-card/60">
           <CardHeader><CardTitle className="font-display text-lg flex items-center gap-2"><Plus className="h-4 w-4 text-primary" /> Create a room</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
+          <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1"><label className="text-xs uppercase tracking-wider text-muted-foreground">Entry fee (BOT)</label>
               <Input value={fee} onChange={(e) => setFee(e.target.value)} className="bg-background/60" /></div>
             <div className="space-y-1"><label className="text-xs uppercase tracking-wider text-muted-foreground">Max players</label>
@@ -127,12 +127,12 @@ export function LeaguesView() {
               <Input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} className="bg-background/60" /></div>
             <div className="space-y-1"><label className="text-xs uppercase tracking-wider text-muted-foreground">Ends</label>
               <Input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} className="bg-background/60" /></div>
-            <div className="col-span-2 space-y-1"><label className="text-xs uppercase tracking-wider text-muted-foreground">Join code (blank = public)</label>
+            <div className="col-span-full space-y-1"><label className="text-xs uppercase tracking-wider text-muted-foreground">Join code (blank = public)</label>
               <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="secret-room-42" className="bg-background/60" /></div>
-            <Button onClick={createLeague} disabled={busy} className="col-span-2 font-display tracking-wider">
+            <Button onClick={createLeague} disabled={busy} className="col-span-full font-display tracking-wider">
               {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Users className="mr-2 h-4 w-4" />} CREATE LEAGUE
             </Button>
-            <p className="col-span-2 text-center text-[11px] text-muted-foreground">
+            <p className="col-span-full text-center text-[11px] text-muted-foreground">
               Prize split 50/30/20 · minimum 3 players · code is a social gate, not cryptographic secrecy
             </p>
           </CardContent>
@@ -140,7 +140,7 @@ export function LeaguesView() {
 
         <Card className="border-border bg-card/60">
           <CardHeader><CardTitle className="font-display text-lg flex items-center gap-2"><KeyRound className="h-4 w-4 text-primary" /> Join with code</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
+          <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1"><label className="text-xs uppercase tracking-wider text-muted-foreground">League ID</label>
               <Input value={joinId} onChange={(e) => setJoinId(e.target.value)} placeholder="1" className="bg-background/60" /></div>
             <div className="space-y-1"><label className="text-xs uppercase tracking-wider text-muted-foreground">Code (if private)</label>
@@ -157,7 +157,7 @@ export function LeaguesView() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={joinLeague} disabled={busy} className="col-span-2 font-display tracking-wider">
+            <Button onClick={joinLeague} disabled={busy} className="col-span-full font-display tracking-wider">
               {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />} JOIN ROOM
             </Button>
           </CardContent>

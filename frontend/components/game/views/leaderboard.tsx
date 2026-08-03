@@ -19,7 +19,7 @@ export function LeaderboardView() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide">LEADERBOARD</h1>
+        <h1 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">LEADERBOARD</h1>
         <p className="mt-1 text-sm text-muted-foreground">ELO ranking · everyone starts at 1000</p>
       </div>
 
@@ -32,12 +32,12 @@ export function LeaderboardView() {
               key={a.token_id}
               href={`/agents/${a.token_id}`}
               className={cn(
-                'flex items-center gap-4 rounded-xl border bg-card/50 px-4 py-3 transition-colors hover:border-primary/50',
+                'flex items-center gap-2.5 rounded-xl border bg-card/50 px-3 py-3 transition-colors hover:border-primary/50 sm:gap-4 sm:px-4',
                 i === 0 && 'border-amber-400/50 shadow-[0_0_20px_rgba(251,191,36,0.15)]',
                 i > 0 && 'border-border',
               )}
             >
-              <div className={cn('w-8 text-center font-display text-lg font-bold', i === 0 ? 'text-amber-400' : i < 3 ? 'text-primary' : 'text-muted-foreground')}>
+              <div className={cn('w-6 shrink-0 text-center font-display text-base font-bold sm:w-8 sm:text-lg', i === 0 ? 'text-amber-400' : i < 3 ? 'text-primary' : 'text-muted-foreground')}>
                 {i === 0 ? <Trophy className="mx-auto h-5 w-5" /> : i + 1}
               </div>
               <AgentAvatar personality={a.personality} tier={a.tier ?? 1} name={a.name} size="sm" />
@@ -47,8 +47,8 @@ export function LeaderboardView() {
                   L{a.level} · {PERSONALITY_NAMES[a.personality]} · {TIER_NAMES[a.tier ?? 1]}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="font-display text-lg font-bold text-primary">{a.ranking_points}</div>
+              <div className="shrink-0 text-right">
+                <div className="font-display text-base font-bold text-primary sm:text-lg">{a.ranking_points}</div>
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{a.wins}W · {a.losses}L</div>
               </div>
             </Link>

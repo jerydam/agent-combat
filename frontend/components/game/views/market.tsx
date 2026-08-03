@@ -287,7 +287,7 @@ export function MarketView() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-wide text-steel">MARKET</h1>
+          <h1 className="font-display text-2xl font-bold tracking-wide text-steel sm:text-3xl">MARKET</h1>
           <div className="split-line mt-2 w-32" />
           <p className="mt-2 text-sm text-muted-foreground">
             Pay with points or BOT — 1,000 pts = $1 of BOT, same value either way.
@@ -299,12 +299,13 @@ export function MarketView() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-4">
-          <div className="split-ring rounded-lg px-3 py-1.5 font-display text-xl font-bold text-warning">
+        {/* wraps and goes full-width on a phone instead of overflowing */}
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:gap-4">
+          <div className="split-ring rounded-lg px-3 py-1.5 font-display text-lg font-bold text-warning sm:text-xl">
             <Star className="mb-0.5 mr-1 inline h-4 w-4" />{points.toLocaleString()} pts
           </div>
           <Select value={targetAgent} onValueChange={setTargetAgent}>
-            <SelectTrigger className={cn('w-44 bg-background/60', !targetAgent && myAgents.length > 0 && 'animate-pulse-glow border-warning/60')}>
+            <SelectTrigger className={cn('w-full min-w-0 flex-1 bg-background/60 sm:w-44 sm:flex-none', !targetAgent && myAgents.length > 0 && 'animate-pulse-glow border-warning/60')}>
               <SelectValue placeholder="Target agent" />
             </SelectTrigger>
             <SelectContent>

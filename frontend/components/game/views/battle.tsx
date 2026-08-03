@@ -31,7 +31,7 @@ export function BattleView() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-wide">BATTLE #{id}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">BATTLE #{id}</h1>
           <div className="split-line mt-2 w-32" />
         </div>
         {battle?.tx_hash && (

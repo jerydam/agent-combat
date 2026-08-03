@@ -87,7 +87,7 @@ export function AchievementsView() {
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-wide text-steel">ACHIEVEMENT ROOM</h1>
+          <h1 className="font-display text-2xl font-bold tracking-wide text-steel sm:text-3xl">ACHIEVEMENT ROOM</h1>
           <div className="split-line mt-2 w-32" />
           <p className="mt-1 text-sm text-muted-foreground">
             Earn points, spend them in the Market on skins, boosts, and powers.

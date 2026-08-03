@@ -119,7 +119,7 @@ export function RewardsView() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-wide text-steel">REWARDS</h1>
+          <h1 className="font-display text-2xl font-bold tracking-wide text-steel sm:text-3xl">REWARDS</h1>
           <div className="split-line mt-2 w-32" />
           <p className="mt-2 max-w-lg text-sm text-muted-foreground">
             Every stake you&apos;ve placed in the arena. Wins are paid out automatically;

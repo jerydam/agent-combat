@@ -62,7 +62,7 @@ export function LeagueRoomView({ leagueId }: { leagueId: number }) {
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-wide">LEAGUE #{league.league_id}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">LEAGUE #{league.league_id}</h1>
           <div className="split-line mt-2 w-32" />
           <p className="mt-1 text-sm text-muted-foreground">
             {league.entrants.length} players · {league.status === 'active'
@@ -78,7 +78,11 @@ export function LeagueRoomView({ leagueId }: { leagueId: number }) {
       <Card className="border-border bg-card/60">
         <CardHeader><CardTitle className="font-display text-lg flex items-center gap-2"><Trophy className="h-4 w-4 text-primary" /> {league.status === 'resolved' ? 'Final standings' : 'Live table'}</CardTitle></CardHeader>
         <CardContent>
-          <table className="w-full text-sm">
+          {/* 8 columns will never fit a phone. Scroll the TABLE rather
+              than letting it push the whole page sideways — a horizontally
+              scrolling document breaks every other layout on the screen. */}
+          <div className="-mx-2 overflow-x-auto px-2">
+          <table className="w-full min-w-[30rem] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-[10px] uppercase tracking-widest text-muted-foreground">
                 <th className="pb-2">#</th><th className="pb-2">Agent</th>
@@ -102,6 +106,7 @@ export function LeagueRoomView({ leagueId }: { leagueId: number }) {
               ))}
             </tbody>
           </table>
+          </div>
           <p className="mt-3 text-[11px] text-muted-foreground">Win 3 · loss 1 · unplayed by deadline 0 · prizes 50/30/20</p>
         </CardContent>
       </Card>

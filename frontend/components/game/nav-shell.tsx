@@ -10,7 +10,7 @@ import { releaseGameMode } from '@/lib/game-mode';
 import { MobileNavCarousel } from '@/components/game/mobile-nav-carousel';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
-import { Zap, Swords, Trophy, Home, Plus, Dumbbell, LogOut, Wallet, Users, Medal, Flame, Award, ShoppingBag, Menu, Coins } from 'lucide-react';
+import { Zap, Swords, Trophy, Home, Plus, Dumbbell, LogOut, Wallet, Users, Medal, Flame, Award, ShoppingBag, Menu, Coins, BookOpen } from 'lucide-react';
 import { Toaster } from 'sonner';
 
 const NAV_ITEMS: { href: string; label: string; icon: React.ElementType }[] = [
@@ -26,6 +26,7 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ElementType }[] = [
   { href: '/market', label: 'Market', icon: ShoppingBag },
   { href: '/rewards', label: 'Rewards', icon: Coins },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy },
+  { href: '/guide', label: 'How to Play', icon: BookOpen },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -99,7 +100,11 @@ export function NavShell({ children }: { children: React.ReactNode }) {
 
   if (isMobile) {
     return (
-      <div className="relative min-h-[100dvh] bg-background bg-arena">
+      // overflow-x-hidden is a safety net, not a fix: every page below is
+      // laid out to fit 360px. It stops one stray wide element from making
+      // the whole document scroll sideways, which on a phone breaks the
+      // sticky header and every centred layout at once.
+      <div className="relative min-h-[100dvh] overflow-x-hidden bg-background bg-arena">
         <div className="pointer-events-none fixed inset-0 bg-grid opacity-30" />
         <div className="pointer-events-none fixed inset-x-0 top-0 z-40 split-line" />
 

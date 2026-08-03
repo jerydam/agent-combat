@@ -76,7 +76,7 @@ export function SoloView() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide">SOLO · VS THE HOUSE</h1>
+        <h1 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">SOLO · VS THE HOUSE</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           House bots are real on-chain agents — they gain XP and evolve too. Play free, or stake BOT and win <span className="text-primary font-semibold">1.8x</span> if you beat them.
         </p>

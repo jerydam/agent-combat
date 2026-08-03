@@ -58,7 +58,7 @@ export function TrainingView() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-wide text-steel">TRAINING</h1>
+        <h1 className="font-display text-2xl font-bold tracking-wide text-steel sm:text-3xl">TRAINING</h1>
         <div className="split-line mt-2 w-32" />
         <p className="mt-1 text-sm text-muted-foreground">
           Learn the controls in a real fight, or simulate a matchup before you stake.
