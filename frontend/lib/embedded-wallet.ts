@@ -147,29 +147,54 @@ export async function socialLogin(
   if (popup) popup.location.href = authUrl;
   else window.location.href = authUrl; // popup blocked: fall back to redirect
 
-  // poll for the credential the callback stashes against our state
+  // Poll for the credential the callback stashes against our state.
+  //
+  // Two failure modes are worth telling apart, because they look identical
+  // from inside the loop and only one is the user's fault:
+  //
+  //  - HTTP 404 "Unknown state": normal at first (the popup hasn't hit
+  //    /api/auth/<p> yet) and terminal later (the session is single-use, so
+  //    once a `done` response is read it is gone).
+  //  - TypeError "Failed to fetch": the request never completed — almost
+  //    always CORS, i.e. this origin isn't on the wallet service's
+  //    allowlist. Retrying for five minutes just hides a config bug, so we
+  //    give up quickly and say what's actually wrong.
   const started = Date.now();
   let credential: string | null = null;
+  let networkFailures = 0;
+
   while (Date.now() - started < 300_000) {
     await new Promise((r) => setTimeout(r, 1200));
-    if (popup?.closed && !credential) {
-      // user may have closed it after authorising — keep polling briefly
-    }
     try {
       const s = await req<{ status: string; provider?: string; credential?: string }>(
         `/api/auth/session?state=${encodeURIComponent(state)}`,
       );
+      networkFailures = 0;
       if (s.status === 'done' && s.credential) {
         credential = s.credential;
         break;
       }
-    } catch {
-      /* 404 until the state is registered; keep trying */
+    } catch (e: any) {
+      // `req` throws Error for HTTP errors; fetch itself throws TypeError
+      // when the request was blocked before a response was readable.
+      const blocked = e instanceof TypeError
+        || /failed to fetch|networkerror|load failed/i.test(e?.message ?? '');
+      if (blocked && ++networkFailures >= 4) {
+        try { popup?.close(); } catch { /* cross-origin */ }
+        throw new Error(
+          `Cannot reach the wallet service from ${window.location.origin}. ` +
+          `This is almost always CORS — add this exact origin (including the ` +
+          `"www." if present) to ALLOWED_ORIGINS on the wallet backend.`,
+        );
+      }
+      /* otherwise: 404 while the state registers — keep trying */
     }
+    // Popup gone and nothing arrived: the user closed it or cancelled.
+    if (popup?.closed && Date.now() - started > 4000 && !credential) break;
   }
   try { popup?.close(); } catch { /* cross-origin */ }
 
-  if (!credential) throw new Error('Sign-in timed out or was cancelled');
+  if (!credential) throw new Error('Sign-in was cancelled or timed out — please try again');
 
   const session = await req<WalletSession & { evm_address?: string }>(
     '/wallet/social-login',
