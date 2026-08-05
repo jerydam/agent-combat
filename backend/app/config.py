@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./agent_arena.db"
 
     # BOT Chain
-    rpc_url: str = "https://rpc.bohr.life"
+    rpc_url: str = "https://rpc.botchain.ai"
     chain_id: int = 698
     agent_nft_address: str = ""
     battle_arena_address: str = ""
