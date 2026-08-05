@@ -540,20 +540,34 @@ async def sync_minted_agents(nft, from_block: int, to_block: int) -> None:
     async with SessionLocal() as db:
         for ev in events:
             a = ev["args"]
-            if await db.get(AgentCache, a["tokenId"]):
-                continue
-            db.add(
-                AgentCache(
-                    token_id=a["tokenId"],
-                    owner=a["owner"].lower(),
-                    name=a["name"],
-                    personality=a["personality"],
-                    attack=a["attack"],
-                    defense=a["defense"],
-                    speed=a["speed"],
-                    intelligence=a["intelligence"],
-                )
-            )
+            owner = a["owner"].lower()
+            row = await db.get(AgentCache, a["tokenId"])
+            if row is not None and row.owner == owner and row.name == a["name"]:
+                continue  # already mirrored — keep its level/ELO/W-L
+            if row is None:
+                row = AgentCache(token_id=a["tokenId"])
+                db.add(row)
+            else:
+                # Same token_id, different agent: a leftover row from an
+                # earlier deployment. token_id is only unique WITHIN one
+                # chain and every redeploy restarts it at 1, so the stale
+                # row sits exactly where this mint belongs. Skipping it
+                # would drop the mint and leave the player staring at a
+                # dead agent that is not theirs — replace it outright,
+                # progress included, since that progress belongs to the
+                # agent being overwritten.
+                row.level = 1
+                row.experience = 0
+                row.wins = 0
+                row.losses = 0
+                row.ranking_points = 1000
+            row.owner = owner
+            row.name = a["name"]
+            row.personality = a["personality"]
+            row.attack = a["attack"]
+            row.defense = a["defense"]
+            row.speed = a["speed"]
+            row.intelligence = a["intelligence"]
         await db.commit()
 
 

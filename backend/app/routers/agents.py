@@ -152,7 +152,14 @@ async def sync_from_chain(body: SyncBody, db: AsyncSession = Depends(get_db)):
             db.add(AgentCache(owner=body.owner.lower(), **rec))
             added += 1
         else:
+            # Overwrite the whole row from chain, not just the owner. The
+            # scan above already read live stats from the node, and a row
+            # left over from an older deployment holds a different agent's
+            # name and stats under the same token_id — reassigning only the
+            # owner would hand that stranger's agent to this wallet.
             existing.owner = body.owner.lower()
+            for k, v in rec.items():
+                setattr(existing, k, v)
     await db.commit()
     return {"found": len(found), "added": added}
 

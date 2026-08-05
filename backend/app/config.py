@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     # BOT Chain
     rpc_url: str = "https://rpc.botchain.ai"
-    chain_id: int = 698
+    chain_id: int = 677
     agent_nft_address: str = ""
     battle_arena_address: str = ""
     tournament_address: str = ""
@@ -27,11 +27,12 @@ class Settings(BaseSettings):
     # the whole game uses — keep it current.
     bot_usd_price: float = 9.7
 
-    # BDEX pair lookup for the live WBOT/USD price. The pair lives on
-    # Botchain MAINNET while the game runs on rpc_url (testnet), so the
-    # price fetch uses its own RPC. Override any of these via env:
-    # PRICE_RPC_URL / BDEX_FACTORY_ADDRESS / WBOT_ADDRESS /
-    # STABLE_ADDRESS / STABLE_DECIMALS.
+    # BDEX pair lookup for the live WBOT/USD price. This kept its own RPC
+    # from when the game ran on testnet and the pair only existed on
+    # mainnet; both now point at mainnet, but the split is left in place so
+    # the price feed can be moved without touching the game RPC. Override
+    # any of these via env: PRICE_RPC_URL / BDEX_FACTORY_ADDRESS /
+    # WBOT_ADDRESS / STABLE_ADDRESS / STABLE_DECIMALS.
     price_rpc_url: str = "https://rpc.botchain.ai"
     bdex_factory_address: str = "0x117115f3B72C8d1989178089A67D0C26f8EE0AA3"
     wbot_address: str = "0xD5452816194a3784dBa983426cCe7c122F4abd30"
@@ -47,7 +48,7 @@ class Settings(BaseSettings):
     # nothing this game cares about exists before it, and starting from 0
     # would mean thousands of useless round-trips. Override via
     # DEPLOY_BLOCK / LOG_CHUNK_BLOCKS when redeploying the contracts.
-    deploy_block: int = 18584778
+    deploy_block: int = 18602544  # AgentNFT on BOT Chain mainnet (677)
     log_chunk_blocks: int = 5000
 
     cors_origins: str = "https://www.agentcombat.xyz"
